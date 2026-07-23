@@ -57,6 +57,49 @@ pnpm test:watch      # vitest en modo watch
 pnpm test:coverage   # vitest con reporte de cobertura
 ```
 
+## Despliegue en Vercel
+
+El backend (`crm_iswo_back`, Rails + Kamal) vive en el apex `iswocrm.com`, en infraestructura propia — no en Vercel. Este SPA se despliega en Vercel bajo un **subdominio custom**, nunca en el `*.vercel.app` por defecto.
+
+### Dominio
+
+| Host | Sirve |
+|---|---|
+| `app.iswocrm.com` | SPA (login, CRM) — dominio custom del proyecto en Vercel |
+| `*.iswocrm.com` (wildcard) | Landing pages públicas por tenant, mismo build |
+| `iswocrm.com` (apex) | API — **no** apunta a Vercel |
+
+**Por qué no alcanza con `*.vercel.app`:** la sesión usa una cookie `httponly` de refresh con `same_site: :lax` (ver backend). Esa política permite que la cookie viaje en llamadas cross-*origin* del SPA a la API solo si ambos comparten el mismo *site* (dominio registrable `iswocrm.com`). Si el SPA quedara en `algo.vercel.app`, sería cross-*site* real y el navegador bloquearía la cookie — el refresh de sesión fallaría en silencio. Detalle completo en `docs/DOMAIN_SETUP.md` del repo backend.
+
+### Env vars a configurar en Vercel
+
+```
+VITE_API_BASE_URL=https://iswocrm.com/api/v1
+VITE_TENANT_SLUG=<slug por defecto si aplica>
+```
+
+Son `VITE_*` → quedan embebidas en el bundle público. No poner secretos ahí.
+
+### SPA fallback (routing client-side)
+
+TanStack Router usa browser history. Sin rewrite, refrescar una ruta profunda (`/settings/integrations`) da 404 en Vercel. Falta agregar `vercel.json`:
+
+```json
+{
+  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+}
+```
+
+### Checklist previo al primer deploy
+
+- [ ] Dominio custom `app.iswocrm.com` agregado en el proyecto de Vercel
+- [ ] Wildcard `*.iswocrm.com` agregado si las landing pages se sirven desde acá
+- [ ] DNS: `app.iswocrm.com` y `*.iswocrm.com` → CNAME a Vercel (apex `iswocrm.com` sigue apuntando al backend)
+- [ ] `VITE_API_BASE_URL` seteada en Vercel (Production + Preview)
+- [ ] `vercel.json` con SPA fallback agregado
+- [ ] En el backend: `CORS_ALLOWED_ORIGINS` incluye `https://app.iswocrm.com` (ver `config/deploy.yml`)
+- [ ] `package.json` con `engines.node` fijado (evita que Vercel tome una versión de Node distinta a la de `.nvmrc`)
+
 ## Troubleshooting
 
 **`Cannot find native binding` (PostCSS / lightningcss / @tailwindcss/oxide) al correr `pnpm dev`**

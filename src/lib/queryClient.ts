@@ -96,7 +96,21 @@ export const queryKeys = {
     list: (authScope: string, filters: Record<string, unknown>) =>
       ['exports', 'list', authScope, filters] as const,
   },
-  
+
+  // WhatsApp inbox (bandeja de entrada de conversaciones)
+  whatsappConversations: {
+    all: ['whatsappConversations'] as const,
+    stats: (authScope: string) => ['whatsappConversations', 'stats', authScope] as const,
+    list: (authScope: string, filters: Record<string, unknown>) =>
+      ['whatsappConversations', 'list', authScope, filters] as const,
+    messages: (contactId: string) => ['whatsappConversations', 'messages', contactId] as const,
+  },
+
+  // WhatsApp Templates
+  whatsappTemplates: {
+    all: ['whatsappTemplates'] as const,
+  },
+
   // Integrations
   integrations: {
     all: ['integrations'] as const,

@@ -16,6 +16,7 @@ import { Route as AppRouteImport } from './routes/_app'
 import { Route as SlugRouteImport } from './routes/$slug'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as LSlugRouteImport } from './routes/l.$slug'
+import { Route as AppWhatsappRouteImport } from './routes/_app/whatsapp'
 import { Route as AppSettingsRouteImport } from './routes/_app/settings'
 import { Route as AppRemindersRouteImport } from './routes/_app/reminders'
 import { Route as AppOpportunitiesRouteImport } from './routes/_app/opportunities'
@@ -67,6 +68,11 @@ const LSlugRoute = LSlugRouteImport.update({
   id: '/l/$slug',
   path: '/l/$slug',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AppWhatsappRoute = AppWhatsappRouteImport.update({
+  id: '/whatsapp',
+  path: '/whatsapp',
+  getParentRoute: () => AppRoute,
 } as any)
 const AppSettingsRoute = AppSettingsRouteImport.update({
   id: '/settings',
@@ -169,6 +175,7 @@ export interface FileRoutesByFullPath {
   '/opportunities': typeof AppOpportunitiesRoute
   '/reminders': typeof AppRemindersRoute
   '/settings': typeof AppSettingsRouteWithChildren
+  '/whatsapp': typeof AppWhatsappRoute
   '/l/$slug': typeof LSlugRoute
   '/settings/audit': typeof AppSettingsAuditRoute
   '/settings/bant': typeof AppSettingsBantRoute
@@ -193,6 +200,7 @@ export interface FileRoutesByTo {
   '/opportunities': typeof AppOpportunitiesRoute
   '/reminders': typeof AppRemindersRoute
   '/settings': typeof AppSettingsRouteWithChildren
+  '/whatsapp': typeof AppWhatsappRoute
   '/l/$slug': typeof LSlugRoute
   '/': typeof AppIndexRoute
   '/settings/audit': typeof AppSettingsAuditRoute
@@ -220,6 +228,7 @@ export interface FileRoutesById {
   '/_app/opportunities': typeof AppOpportunitiesRoute
   '/_app/reminders': typeof AppRemindersRoute
   '/_app/settings': typeof AppSettingsRouteWithChildren
+  '/_app/whatsapp': typeof AppWhatsappRoute
   '/l/$slug': typeof LSlugRoute
   '/_app/': typeof AppIndexRoute
   '/_app/settings/audit': typeof AppSettingsAuditRoute
@@ -248,6 +257,7 @@ export interface FileRouteTypes {
     | '/opportunities'
     | '/reminders'
     | '/settings'
+    | '/whatsapp'
     | '/l/$slug'
     | '/settings/audit'
     | '/settings/bant'
@@ -272,6 +282,7 @@ export interface FileRouteTypes {
     | '/opportunities'
     | '/reminders'
     | '/settings'
+    | '/whatsapp'
     | '/l/$slug'
     | '/'
     | '/settings/audit'
@@ -298,6 +309,7 @@ export interface FileRouteTypes {
     | '/_app/opportunities'
     | '/_app/reminders'
     | '/_app/settings'
+    | '/_app/whatsapp'
     | '/l/$slug'
     | '/_app/'
     | '/_app/settings/audit'
@@ -370,6 +382,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/l/$slug'
       preLoaderRoute: typeof LSlugRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_app/whatsapp': {
+      id: '/_app/whatsapp'
+      path: '/whatsapp'
+      fullPath: '/whatsapp'
+      preLoaderRoute: typeof AppWhatsappRouteImport
+      parentRoute: typeof AppRoute
     }
     '/_app/settings': {
       id: '/_app/settings'
@@ -530,6 +549,7 @@ interface AppRouteChildren {
   AppOpportunitiesRoute: typeof AppOpportunitiesRoute
   AppRemindersRoute: typeof AppRemindersRoute
   AppSettingsRoute: typeof AppSettingsRouteWithChildren
+  AppWhatsappRoute: typeof AppWhatsappRoute
   AppIndexRoute: typeof AppIndexRoute
 }
 
@@ -542,6 +562,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppOpportunitiesRoute: AppOpportunitiesRoute,
   AppRemindersRoute: AppRemindersRoute,
   AppSettingsRoute: AppSettingsRouteWithChildren,
+  AppWhatsappRoute: AppWhatsappRoute,
   AppIndexRoute: AppIndexRoute,
 }
 

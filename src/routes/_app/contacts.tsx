@@ -523,6 +523,7 @@ function ContactsPage() {
                         <TableHead>Empresa</TableHead>
                         <TableHead>Cargo</TableHead>
                         <TableHead>Origen</TableHead>
+                        <TableHead>WhatsApp</TableHead>
                         <TableHead className="w-10"></TableHead>
                       </TableRow>
                     </TableHeader>
@@ -530,7 +531,7 @@ function ContactsPage() {
                       {(contactsData?.contacts.length ?? 0) === 0 ? (
                         <TableRow>
                           <TableCell
-                            colSpan={canDeleteContacts ? 8 : 7}
+                            colSpan={canDeleteContacts ? 9 : 8}
                             className="h-32 text-center text-sm text-muted-foreground"
                           >
                             {debouncedQ.length >= 2 || searchFromUrl.owner || searchFromUrl.segment
@@ -594,6 +595,19 @@ function ContactsPage() {
                               </Badge>
                             ) : (
                               <span className="text-xs text-muted-foreground">—</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {contact.whatsappOptInAt ? (
+                              <Badge
+                                variant="success"
+                                className="text-xs"
+                                title={`Opt-in ${new Date(contact.whatsappOptInAt).toLocaleDateString('es-CO')}${contact.whatsappOptInSource ? ` · ${contact.whatsappOptInSource}` : ''}`}
+                              >
+                                Autorizado
+                              </Badge>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">Sin opt-in</span>
                             )}
                           </TableCell>
                           <TableCell>

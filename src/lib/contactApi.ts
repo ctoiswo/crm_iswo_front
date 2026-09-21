@@ -47,6 +47,8 @@ export interface ContactSummary {
   lastContactedAt?: string
   customFields?: Record<string, unknown>
   landingOrigins?: ContactLandingOrigin[]
+  whatsappOptInAt?: string
+  whatsappOptInSource?: string
 }
 
 type ContactAttributes = {
@@ -71,6 +73,8 @@ type ContactAttributes = {
   last_contacted_at?: string
   custom_fields?: Record<string, unknown>
   landing_origins?: ContactLandingOrigin[]
+  whatsapp_opt_in_at?: string
+  whatsapp_opt_in_source?: string
 }
 
 export interface ContactListFilters {
@@ -134,6 +138,8 @@ export function mapContactResource(resource: JsonApiResource): ContactSummary {
           created_at: o.created_at,
         }))
       : undefined,
+    whatsappOptInAt: attrs.whatsapp_opt_in_at || undefined,
+    whatsappOptInSource: attrs.whatsapp_opt_in_source || undefined,
   }
 }
 

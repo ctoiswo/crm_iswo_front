@@ -184,6 +184,28 @@ export async function fetchContactsList(filters: ContactListFilters): Promise<Co
   }
 }
 
+/**
+ * Trae todos los contactos que matchean un filtro, paginando por debajo
+ * (hasta MAX_PER_PAGE=200 del backend por página). Uso: acciones masivas
+ * como "marcar opt-in a todos" que no pueden depender de la selección
+ * manual página por página.
+ */
+export async function fetchAllContacts(
+  filters: Omit<ContactListFilters, 'page' | 'items'>,
+): Promise<ContactSummary[]> {
+  const items = 200
+  const all: ContactSummary[] = []
+  let page = 1
+  // Tope de seguridad: 50 páginas * 200 = 10.000 contactos.
+  for (let i = 0; i < 50; i++) {
+    const result = await fetchContactsList({ ...filters, page, items })
+    all.push(...result.contacts)
+    if (page >= result.totalPages || result.contacts.length === 0) break
+    page += 1
+  }
+  return all
+}
+
 export async function fetchContactDetail(id: string): Promise<ContactSummary> {
   const response = await api.get(`/contacts/${id}`)
   const one = jsonApiPrimaryOne(response.data)

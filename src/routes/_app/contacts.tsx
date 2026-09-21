@@ -68,6 +68,7 @@ import {
   bulkMarkWhatsappOptIn,
   contactListErrorMessage,
   deleteContact,
+  fetchAllContacts,
   fetchContactsList,
   fetchContactStats,
   getCompanyLabel,
@@ -124,6 +125,7 @@ function ContactsPage() {
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false)
   const [confirmBulkOptIn, setConfirmBulkOptIn] = useState(false)
   const [importDialogOpen, setImportDialogOpen] = useState(false)
+  const [selectingAllOptIn, setSelectingAllOptIn] = useState(false)
 
   const handleRefresh = async () => {
     setRefreshing(true)
@@ -340,6 +342,32 @@ function ContactsPage() {
     })
   }
 
+  /** Trae TODOS los contactos que matchean los filtros activos (no solo la página
+   * actual) y abre el diálogo de confirmación de opt-in ya con los que faltan
+   * seleccionados — evita marcar opt-in de a 10 en 10. */
+  const handleSelectAllWithoutOptIn = async () => {
+    setSelectingAllOptIn(true)
+    try {
+      const all = await fetchAllContacts({
+        q: listFiltersPerson.q,
+        kind: 'person',
+        owner_id: listFiltersPerson.owner_id,
+        segment: listFiltersPerson.segment,
+      })
+      const withoutOptIn = all.filter((c) => !c.whatsappOptedIn).map((c) => c.id)
+      if (withoutOptIn.length === 0) {
+        toast.info('Todos los contactos (con los filtros actuales) ya tienen opt-in de WhatsApp')
+        return
+      }
+      setSelectedIds(new Set(withoutOptIn))
+      setConfirmBulkOptIn(true)
+    } catch (err) {
+      toast.error(formatRailsError(err, 'No se pudieron cargar los contactos'))
+    } finally {
+      setSelectingAllOptIn(false)
+    }
+  }
+
 
   if (!hasContactsModule) {
     return (
@@ -373,6 +401,21 @@ function ContactsPage() {
           <RefreshCw className={`size-3.5 ${refreshing ? 'animate-spin' : ''}`} />
           <span className="hidden sm:inline">Actualizar</span>
         </Button>
+        {canManageWhatsappOptIn && activeTab === 'contacts' && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-1.5"
+            onClick={() => void handleSelectAllWithoutOptIn()}
+            disabled={selectingAllOptIn}
+            title="Marca opt-in de WhatsApp a todos los contactos que coinciden con el filtro actual, sin límite de página"
+          >
+            <MessageCircle className={`size-3.5 ${selectingAllOptIn ? 'animate-pulse' : ''}`} />
+            <span className="hidden sm:inline">
+              {selectingAllOptIn ? 'Buscando...' : 'Marcar opt-in a todos'}
+            </span>
+          </Button>
+        )}
         {canImportContacts && (
           <>
             <Button

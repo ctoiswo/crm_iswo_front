@@ -44,6 +44,7 @@ const emptyForm = {
   language: 'es_CO',
   variableLabels: [] as string[],
   variableNames: [] as string[],
+  optInRequest: false,
 }
 
 /**
@@ -79,6 +80,7 @@ export function WhatsappTemplatesPanel() {
         language: form.language.trim(),
         variable_labels: rows.map((r) => r.label),
         variable_names: rows.map((r) => r.name),
+        opt_in_request: form.optInRequest,
       }
       if (editing) {
         await updateWhatsappTemplate(editing.id, body)
@@ -124,6 +126,7 @@ export function WhatsappTemplatesPanel() {
       language: tpl.language,
       variableLabels: [...tpl.variableLabels],
       variableNames: [...tpl.variableNames],
+      optInRequest: tpl.optInRequest,
     })
     setDialogOpen(true)
   }
@@ -188,6 +191,11 @@ export function WhatsappTemplatesPanel() {
                 <Badge variant="outline" className="shrink-0 text-xs font-normal">
                   {tpl.language}
                 </Badge>
+                {tpl.optInRequest && (
+                  <Badge variant="warning" className="shrink-0 text-xs font-normal">
+                    Pide opt-in
+                  </Badge>
+                )}
                 <div className="min-w-0">
                   <p className={`truncate text-sm ${!tpl.active ? 'text-muted-foreground line-through' : ''}`}>
                     {tpl.name}
@@ -284,6 +292,23 @@ export function WhatsappTemplatesPanel() {
                 value={form.language}
                 onChange={(e) => setForm((f) => ({ ...f, language: e.target.value }))}
                 placeholder="Ej: es_CO"
+              />
+            </div>
+
+            <div className="flex items-start justify-between gap-4 rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-900 dark:bg-amber-950">
+              <div className="space-y-1">
+                <Label htmlFor="tplOptInRequest">Es una solicitud de opt-in</Label>
+                <p className="text-xs text-muted-foreground">
+                  Marcala solo si esta plantilla pide autorización de contacto (ej. «¿nos autorizas
+                  a escribirte?»). Una campaña con esta plantilla podrá llegar a contactos que
+                  todavía NO tienen opt-in — nunca uses esto para una plantilla de contenido
+                  promocional.
+                </p>
+              </div>
+              <Switch
+                id="tplOptInRequest"
+                checked={form.optInRequest}
+                onCheckedChange={(optInRequest) => setForm((f) => ({ ...f, optInRequest }))}
               />
             </div>
 

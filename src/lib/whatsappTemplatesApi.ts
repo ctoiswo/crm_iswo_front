@@ -10,6 +10,9 @@ export interface WhatsappTemplate {
   /** Nombre exacto de cada variable en Meta (formato nuevo: {{primer_nombre}}). Vacío = plantilla posicional clásica ({{1}}). */
   variableNames: string[]
   active: boolean
+  /** Plantilla redactada para pedir autorización de WhatsApp — una campaña
+   * que la use salta el gate de opt-in (ver backend). */
+  optInRequest: boolean
 }
 
 export function mapWhatsappTemplate(resource: JsonApiResource): WhatsappTemplate | null {
@@ -26,6 +29,7 @@ export function mapWhatsappTemplate(resource: JsonApiResource): WhatsappTemplate
     variableLabels:   labels.map((l) => String(l)),
     variableNames:    names.map((n) => String(n)),
     active:           Boolean(a.active ?? true),
+    optInRequest:     Boolean(a.opt_in_request ?? false),
   }
 }
 
@@ -43,6 +47,7 @@ export type WhatsappTemplateInput = {
   variable_labels: string[]
   variable_names: string[]
   active?: boolean
+  opt_in_request?: boolean
 }
 
 export async function createWhatsappTemplate(body: WhatsappTemplateInput): Promise<void> {

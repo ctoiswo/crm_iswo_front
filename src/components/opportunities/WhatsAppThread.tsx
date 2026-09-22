@@ -5,7 +5,6 @@ import { useAuthStore } from '@/stores/auth'
 import { Send, Phone, Video, Trash2, Check, CheckCheck, AlertCircle, MessageSquareText, FileText, Download } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   Select,
@@ -248,14 +247,27 @@ export function WhatsAppThread({
   }
 
   // Auto-scroll al último mensaje: al cambiar de conversación, al recibir uno
-  // nuevo por poll, o al enviar uno propio. Se maneja el scrollTop del
-  // viewport directo (en vez de scrollIntoView) porque ScrollArea es un
-  // contenedor custom de Radix — scrollIntoView es poco confiable ahí.
+  // nuevo por poll, o al enviar uno propio. El contenedor es un div nativo
+  // con overflow-y-auto (no ScrollArea de Radix) — su manejo interno del
+  // scrollbar custom pisaba el scrollTop seteado a mano, así que el mensaje
+  // nuevo llegaba pero había que bajar la barra manualmente para verlo.
+  // El doble requestAnimationFrame espera a que el layout del mensaje nuevo
+  // (y las imágenes/adjuntos, si los hay) ya esté pintado antes de mover el
+  // scroll, para no quedarse corto.
   const viewportRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     const el = viewportRef.current
     if (!el) return
-    el.scrollTop = el.scrollHeight
+    let raf2 = 0
+    const raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(() => {
+        el.scrollTop = el.scrollHeight
+      })
+    })
+    return () => {
+      cancelAnimationFrame(raf1)
+      cancelAnimationFrame(raf2)
+    }
   }, [contactId, opportunityId, messages.length])
 
   const handleSelectTemplate = (id: string) => {
@@ -365,7 +377,10 @@ export function WhatsAppThread({
         </div>
       </div>
 
-      <ScrollArea ref={viewportRef} className="min-h-0 flex-1 border-x border-border/50 bg-muted/40 p-4 dark:bg-card/30">
+      <div
+        ref={viewportRef}
+        className="min-h-0 flex-1 overflow-y-auto border-x border-border/50 bg-muted/40 p-4 dark:bg-card/30"
+      >
         <div className="space-y-2">
           {isLoading ? (
             <div className="space-y-3 py-2">
@@ -420,7 +435,7 @@ export function WhatsAppThread({
             })
           )}
         </div>
-      </ScrollArea>
+      </div>
 
       {canSendProp && !contactPhone.trim() && (
         <div className="shrink-0 border-t border-border/60 px-4 py-2">

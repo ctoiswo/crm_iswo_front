@@ -40,7 +40,7 @@ export type ThreadMessage = {
   content: string
   timestamp: string
   isOutgoing: boolean
-  /** Proveedor: twilio | whatsapp_cloud | openwa */
+  /** Proveedor: whatsapp_cloud | openwa */
   provider?: string
   status: 'pending' | 'queued' | 'sent' | 'delivered' | 'read' | 'failed'
   errorMessage?: string

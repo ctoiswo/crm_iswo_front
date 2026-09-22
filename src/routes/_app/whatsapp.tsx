@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { createFileRoute, useSearch } from '@tanstack/react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
@@ -15,6 +15,7 @@ import { getAuthQueryScope, queryKeys } from '@/lib/queryClient'
 import api from '@/lib/api'
 import { jsonApiPrimaryList } from '@/lib/opportunityApi'
 import { fetchConversations, markConversationRead } from '@/lib/whatsappInboxApi'
+import { playNewMessageSound } from '@/lib/notificationSound'
 
 const whatsappSearchSchema = z.object({
   contact: z.string().optional(),
@@ -43,6 +44,7 @@ function mapThreadMessages(body: unknown): ThreadMessage[] {
         status: (THREAD_STATUSES.includes(st as ThreadMessage['status']) ? st : 'sent') as ThreadMessage['status'],
         errorMessage:
           typeof a.error_message === 'string' && a.error_message.trim() ? String(a.error_message) : undefined,
+        mediaUrl: typeof a.media_url === 'string' && a.media_url.trim() ? String(a.media_url) : undefined,
       }
     })
     .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
@@ -68,11 +70,24 @@ function WhatsappPage() {
     queryKey: queryKeys.whatsappConversations.list(authScope, { scope }),
     queryFn: () => fetchConversations({ scope }),
     enabled: Boolean(authScope),
-    refetchInterval: 20_000,
+    refetchInterval: 8000,
     refetchOnWindowFocus: true,
   })
 
   const conversations = useMemo(() => listResult?.conversations ?? [], [listResult])
+
+  // Sonido de mensaje nuevo: se dispara cuando el total de no leídos sube
+  // entre un poll y el siguiente (nunca en la carga inicial). Funciona aunque
+  // el mensaje nuevo sea de una conversación distinta a la abierta.
+  const previousUnreadRef = useRef<number | null>(null)
+  useEffect(() => {
+    if (!listResult) return
+    const totalUnread = conversations.reduce((sum, c) => sum + c.unreadCount, 0)
+    if (previousUnreadRef.current !== null && totalUnread > previousUnreadRef.current) {
+      playNewMessageSound()
+    }
+    previousUnreadRef.current = totalUnread
+  }, [listResult, conversations])
   const selected = useMemo(
     () => conversations.find((c) => c.contactId === search.contact) ?? null,
     [conversations, search.contact],
@@ -93,7 +108,7 @@ function WhatsappPage() {
       return mapThreadMessages(response.data)
     },
     enabled: Boolean(selected?.contactId),
-    refetchInterval: 8000,
+    refetchInterval: 3000,
   })
 
   const markReadMutation = useMutation({
@@ -150,7 +165,8 @@ function WhatsappPage() {
                   contactId={selected.contactId}
                   contactName={selected.contactName ?? 'Sin nombre'}
                   contactPhone={selected.contactPhone ?? ''}
-                  messages={threadLoading ? [] : (threadMessages ?? [])}
+                  messages={threadMessages ?? []}
+                  isLoading={threadLoading}
                   canSend={canSend}
                   canDelete={false}
                 />

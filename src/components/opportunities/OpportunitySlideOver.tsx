@@ -224,6 +224,8 @@ export function OpportunitySlideOver({
               typeof a.error_message === 'string' && a.error_message.trim()
                 ? String(a.error_message)
                 : undefined,
+            mediaUrl:
+              typeof a.media_url === 'string' && a.media_url.trim() ? String(a.media_url) : undefined,
           }
         })
         .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())

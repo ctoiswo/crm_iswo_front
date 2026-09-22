@@ -1,11 +1,12 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '@/stores/auth'
-import { Send, Phone, Video, Trash2, Check, CheckCheck, AlertCircle, MessageSquareText } from 'lucide-react'
+import { Send, Phone, Video, Trash2, Check, CheckCheck, AlertCircle, MessageSquareText, FileText, Download } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { Skeleton } from '@/components/ui/skeleton'
 import {
   Select,
   SelectContent,
@@ -44,6 +45,51 @@ export type ThreadMessage = {
   provider?: string
   status: 'pending' | 'queued' | 'sent' | 'delivered' | 'read' | 'failed'
   errorMessage?: string
+  mediaUrl?: string
+}
+
+type MediaKind = 'image' | 'audio' | 'video' | 'file'
+
+function inferMediaKind(url: string): MediaKind {
+  const ext = url.split('?')[0].split('.').pop()?.toLowerCase() ?? ''
+  if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) return 'image'
+  if (['mp3', 'ogg', 'opus', 'm4a', 'wav', 'aac'].includes(ext)) return 'audio'
+  if (['mp4', 'webm', 'mov'].includes(ext)) return 'video'
+  return 'file'
+}
+
+function MediaPreview({ url }: { url: string }) {
+  const kind = inferMediaKind(url)
+
+  if (kind === 'image') {
+    return (
+      <a href={url} target="_blank" rel="noopener noreferrer" className="mb-1.5 block">
+        <img src={url} alt="Imagen adjunta" className="max-h-64 w-auto rounded-md object-cover" />
+      </a>
+    )
+  }
+  if (kind === 'audio') {
+    return (
+      <audio controls className="mb-1.5 h-9 max-w-full">
+        <source src={url} />
+      </audio>
+    )
+  }
+  if (kind === 'video') {
+    return <video controls className="mb-1.5 max-h-64 w-auto rounded-md" src={url} />
+  }
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="mb-1.5 flex items-center gap-1.5 text-sm underline underline-offset-2"
+    >
+      <FileText className="size-4 shrink-0" />
+      <span className="truncate">Documento adjunto</span>
+      <Download className="size-3.5 shrink-0" />
+    </a>
+  )
 }
 
 interface WhatsAppThreadProps {
@@ -54,6 +100,9 @@ interface WhatsAppThreadProps {
   contactName: string
   contactPhone: string
   messages: ThreadMessage[]
+  /** true mientras se carga el hilo por primera vez (o al cambiar de conversación) —
+   * muestra un skeleton en vez de "No hay mensajes aún" para evitar el parpadeo. */
+  isLoading?: boolean
   /** false para viewer: oculta el input de envío (la policy ya lo bloquea en backend). */
   canSend?: boolean
   /** Borrar hilo completo — solo disponible en modo oportunidad (no hay endpoint standalone). */
@@ -66,6 +115,7 @@ export function WhatsAppThread({
   contactName,
   contactPhone,
   messages,
+  isLoading = false,
   canSend: canSendProp = true,
   canDelete = Boolean(opportunityId),
 }: WhatsAppThreadProps) {
@@ -137,40 +187,31 @@ export function WhatsAppThread({
 
   const sendMutation = useMutation({
     mutationFn: async (body: string) => {
-      const res = await api.post<{
-        data?: {
-          attributes?: {
-            status?: string
-            error_message?: string | null
-            provider_message_id?: string | null
-          }
-        }
-      }>(sendUrl, {
-        to_number: toNumber,
-        body,
-      })
+      const res = await api.post(sendUrl, { to_number: toNumber, body })
       return res.data
     },
-    onSuccess: (payload) => {
-      setDraft('')
-      const attrs = payload?.data?.attributes
-      const err = attrs?.error_message
-      if (attrs?.status === 'failed') {
-        toast.error(
-          err && String(err).trim()
-            ? String(err)
-            : 'El proveedor rechazó el envío. Revisa las credenciales en Ajustes → Integraciones y los logs del API.'
-        )
-      } else if (attrs?.status === 'queued' && !attrs.provider_message_id) {
-        toast.message('Mensaje en cola', {
-          description: 'Aún no llegó al proveedor. Revisa Solid Queue o el estado en el hilo.',
-        })
-      } else {
-        toast.success('Mensaje enviado')
+    // Optimista: el mensaje se pinta al toque, antes de que responda el backend.
+    // El envío real es asíncrono (WhatsappDeliveryJob en background) — el estado
+    // final (sent/delivered/failed) llega solo con el próximo poll del hilo.
+    onMutate: async (body: string) => {
+      await queryClient.cancelQueries({ queryKey: messagesKey })
+      const previous = queryClient.getQueryData<ThreadMessage[]>(messagesKey)
+      const optimisticMessage: ThreadMessage = {
+        id: `optimistic-${Date.now()}`,
+        content: body,
+        timestamp: new Date().toISOString(),
+        isOutgoing: true,
+        status: 'pending',
       }
+      queryClient.setQueryData<ThreadMessage[]>(messagesKey, (old) => [...(old ?? []), optimisticMessage])
+      setDraft('')
+      return { previous }
+    },
+    onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: messagesKey })
     },
-    onError: (e: unknown) => {
+    onError: (e: unknown, _body, context) => {
+      if (context?.previous) queryClient.setQueryData(messagesKey, context.previous)
       toast.error(formatRailsError(e))
     },
   })
@@ -205,6 +246,13 @@ export function WhatsAppThread({
     if (!text || !canSend) return
     sendMutation.mutate(text)
   }
+
+  // Auto-scroll al último mensaje: al cambiar de conversación, al recibir uno
+  // nuevo por poll, o al enviar uno propio.
+  const bottomRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ block: 'end' })
+  }, [contactId, opportunityId, messages.length])
 
   const handleSelectTemplate = (id: string) => {
     setTemplateId(id)
@@ -315,7 +363,13 @@ export function WhatsAppThread({
 
       <ScrollArea className="min-h-0 flex-1 border-x border-border/50 bg-muted/40 p-4 dark:bg-card/30">
         <div className="space-y-2">
-          {messages.length === 0 ? (
+          {isLoading ? (
+            <div className="space-y-3 py-2">
+              <Skeleton className="h-10 w-2/3 rounded-lg" />
+              <Skeleton className="ml-auto h-10 w-1/2 rounded-lg" />
+              <Skeleton className="h-14 w-3/4 rounded-lg" />
+            </div>
+          ) : messages.length === 0 ? (
             <p className="text-center text-sm text-muted-foreground py-8">No hay mensajes aún</p>
           ) : (
             messages.map((msg, index) => {
@@ -342,7 +396,8 @@ export function WhatsAppThread({
                           : 'rounded-bl-none border border-border/60 bg-card text-foreground'
                       )}
                     >
-                    <p className="text-sm whitespace-pre-wrap break-words">{msg.content}</p>
+                    {msg.mediaUrl && <MediaPreview url={msg.mediaUrl} />}
+                    {msg.content && <p className="text-sm whitespace-pre-wrap break-words">{msg.content}</p>}
                     {msg.isOutgoing && msg.status === 'failed' && msg.errorMessage ? (
                       <p className="text-[11px] text-destructive mt-1 break-words" title={msg.errorMessage}>
                         {msg.errorMessage}
@@ -360,6 +415,7 @@ export function WhatsAppThread({
               )
             })
           )}
+          <div ref={bottomRef} />
         </div>
       </ScrollArea>
 
@@ -433,7 +489,7 @@ export function WhatsAppThread({
               canSend ? 'Escribe un mensaje…' : 'Indica un número válido arriba o en el contacto'
             }
             className="flex-1"
-            disabled={!canSend || sendMutation.isPending}
+            disabled={!canSend}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault()
@@ -444,7 +500,7 @@ export function WhatsAppThread({
           <Button
             size="icon"
             type="button"
-            disabled={!canSend || sendMutation.isPending}
+            disabled={!canSend || !draft.trim()}
             onClick={handleSend}
           >
             <Send className="h-4 w-4" />

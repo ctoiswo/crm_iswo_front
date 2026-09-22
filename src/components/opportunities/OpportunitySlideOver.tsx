@@ -226,6 +226,13 @@ export function OpportunitySlideOver({
                 : undefined,
             mediaUrl:
               typeof a.media_url === 'string' && a.media_url.trim() ? String(a.media_url) : undefined,
+            templateName:
+              typeof a.template_name === 'string' && a.template_name.trim()
+                ? String(a.template_name)
+                : undefined,
+            templateParams: Array.isArray(a.template_params)
+              ? a.template_params.map((p) => String(p))
+              : undefined,
           }
         })
         .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())

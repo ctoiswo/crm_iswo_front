@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, Trash2, Edit, X } from 'lucide-react'
+import { Plus, Trash2, Edit, X, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -32,7 +32,9 @@ import {
   createWhatsappTemplate,
   updateWhatsappTemplate,
   deleteWhatsappTemplate,
+  syncWhatsappTemplates,
   whatsappTemplateErrorMessage,
+  whatsappTemplateSyncErrorMessage,
   type WhatsappTemplate,
 } from '@/lib/whatsappTemplatesApi'
 import { queryKeys } from '@/lib/queryClient'
@@ -112,6 +114,18 @@ export function WhatsappTemplatesPanel() {
     onError: (err) => toast.error(whatsappTemplateErrorMessage(err)),
   })
 
+  const syncMutation = useMutation({
+    mutationFn: () => syncWhatsappTemplates(),
+    onSuccess: (result) => {
+      invalidate()
+      const parts = [`${result.updated.length} actualizada(s)`]
+      if (result.newInMeta.length) parts.push(`${result.newInMeta.length} nueva(s) en Meta sin registrar`)
+      if (result.missingInMeta.length) parts.push(`${result.missingInMeta.length} ya no está(n) en Meta`)
+      toast.success(`Sincronizado con Meta: ${parts.join(' · ')}`)
+    },
+    onError: (err) => toast.error(whatsappTemplateSyncErrorMessage(err)),
+  })
+
   const openCreate = () => {
     setEditing(null)
     setForm(emptyForm)
@@ -163,10 +177,26 @@ export function WhatsappTemplatesPanel() {
             texto libre con el error 131047 y exige una plantilla pre-aprobada).
           </p>
         </div>
-        <Button size="sm" onClick={openCreate}>
-          <Plus className="mr-2 h-4 w-4" />
-          Nueva plantilla
-        </Button>
+        <div className="flex shrink-0 items-center gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => syncMutation.mutate()}
+            disabled={syncMutation.isPending}
+            title="Trae category y estado de aprobación reales desde Meta para las plantillas que ya existen en este catálogo"
+          >
+            {syncMutation.isPending ? (
+              <Spinner className="mr-2" />
+            ) : (
+              <RefreshCw className="mr-2 h-4 w-4" />
+            )}
+            Sincronizar
+          </Button>
+          <Button size="sm" onClick={openCreate}>
+            <Plus className="mr-2 h-4 w-4" />
+            Nueva plantilla
+          </Button>
+        </div>
       </div>
 
       {isLoading ? (
@@ -194,6 +224,26 @@ export function WhatsappTemplatesPanel() {
                 {tpl.optInRequest && (
                   <Badge variant="warning" className="shrink-0 text-xs font-normal">
                     Pide opt-in
+                  </Badge>
+                )}
+                {tpl.category && (
+                  <Badge variant="secondary" className="shrink-0 text-xs font-normal">
+                    {tpl.category}
+                  </Badge>
+                )}
+                {tpl.metaStatus && (
+                  <Badge
+                    variant={
+                      tpl.metaStatus === 'APPROVED'
+                        ? 'success'
+                        : tpl.metaStatus === 'REJECTED'
+                          ? 'destructive'
+                          : 'warning'
+                    }
+                    className="shrink-0 text-xs font-normal"
+                    title={tpl.metaSyncedAt ? `Sincronizado con Meta: ${new Date(tpl.metaSyncedAt).toLocaleString()}` : undefined}
+                  >
+                    {tpl.metaStatus}
                   </Badge>
                 )}
                 <div className="min-w-0">

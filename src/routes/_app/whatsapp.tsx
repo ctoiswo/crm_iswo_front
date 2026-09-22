@@ -2,9 +2,10 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { createFileRoute, useSearch } from '@tanstack/react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
-import { MessageCircle } from 'lucide-react'
+import { MessageCircle, Bell, BellOff } from 'lucide-react'
 import { AppPageShell } from '@/components/layout/AppPageShell'
 import { PageHeader } from '@/components/layout/PageHeader'
+import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ConversationList, type InboxScope } from '@/components/inbox/ConversationList'
 import { WhatsAppThread, type ThreadMessage } from '@/components/opportunities/WhatsAppThread'
@@ -15,7 +16,12 @@ import { getAuthQueryScope, queryKeys } from '@/lib/queryClient'
 import api from '@/lib/api'
 import { jsonApiPrimaryList } from '@/lib/opportunityApi'
 import { fetchConversations, markConversationRead } from '@/lib/whatsappInboxApi'
-import { playNewMessageSound } from '@/lib/notificationSound'
+import {
+  playNewMessageSound,
+  isSoundEnabled,
+  setSoundEnabled,
+  unlockAudioOnFirstInteraction,
+} from '@/lib/notificationSound'
 
 const whatsappSearchSchema = z.object({
   contact: z.string().optional(),
@@ -65,6 +71,21 @@ function WhatsappPage() {
 
   const [scope, setScope] = useState<InboxScope>(canSeeAll ? 'all' : 'mine')
   const [searchText, setSearchText] = useState('')
+  const [soundEnabled, setSoundEnabledState] = useState(() => isSoundEnabled())
+
+  // Despierta el AudioContext con la primera interacción real de la página —
+  // sin esto, el navegador bloquea el sonido cuando lo dispara un poll en
+  // background (sin gesto del usuario justo antes).
+  useEffect(() => {
+    unlockAudioOnFirstInteraction()
+  }, [])
+
+  const toggleSound = () => {
+    const next = !soundEnabled
+    setSoundEnabled(next)
+    setSoundEnabledState(next)
+    unlockAudioOnFirstInteraction()
+  }
 
   const { data: listResult, isLoading } = useQuery({
     queryKey: queryKeys.whatsappConversations.list(authScope, { scope }),
@@ -130,7 +151,18 @@ function WhatsappPage() {
       <PageHeader
         title="WhatsApp"
         description="Bandeja de entrada, plantillas y todo lo relacionado con WhatsApp, en un solo lugar (RFC §6.6)."
-      />
+      >
+        <Button
+          size="sm"
+          variant="outline"
+          className="gap-1.5"
+          onClick={toggleSound}
+          title={soundEnabled ? 'Desactivar sonido de mensaje nuevo' : 'Activar sonido de mensaje nuevo'}
+        >
+          {soundEnabled ? <Bell className="size-3.5" /> : <BellOff className="size-3.5" />}
+          <span className="hidden sm:inline">{soundEnabled ? 'Sonido activado' : 'Sonido desactivado'}</span>
+        </Button>
+      </PageHeader>
 
       <Tabs
         value={activeTab}

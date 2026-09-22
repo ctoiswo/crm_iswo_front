@@ -248,10 +248,14 @@ export function WhatsAppThread({
   }
 
   // Auto-scroll al último mensaje: al cambiar de conversación, al recibir uno
-  // nuevo por poll, o al enviar uno propio.
-  const bottomRef = useRef<HTMLDivElement>(null)
+  // nuevo por poll, o al enviar uno propio. Se maneja el scrollTop del
+  // viewport directo (en vez de scrollIntoView) porque ScrollArea es un
+  // contenedor custom de Radix — scrollIntoView es poco confiable ahí.
+  const viewportRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ block: 'end' })
+    const el = viewportRef.current
+    if (!el) return
+    el.scrollTop = el.scrollHeight
   }, [contactId, opportunityId, messages.length])
 
   const handleSelectTemplate = (id: string) => {
@@ -361,7 +365,7 @@ export function WhatsAppThread({
         </div>
       </div>
 
-      <ScrollArea className="min-h-0 flex-1 border-x border-border/50 bg-muted/40 p-4 dark:bg-card/30">
+      <ScrollArea ref={viewportRef} className="min-h-0 flex-1 border-x border-border/50 bg-muted/40 p-4 dark:bg-card/30">
         <div className="space-y-2">
           {isLoading ? (
             <div className="space-y-3 py-2">
@@ -415,7 +419,6 @@ export function WhatsAppThread({
               )
             })
           )}
-          <div ref={bottomRef} />
         </div>
       </ScrollArea>
 

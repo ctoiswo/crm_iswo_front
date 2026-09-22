@@ -24,7 +24,11 @@ export function PageHeader({ title, description, belowTitle, className, children
         <h1 className="text-3xl font-semibold tracking-tight text-foreground">{title}</h1>
         {belowTitle}
         {description ? (
-          <p className="max-w-xl text-sm leading-relaxed text-muted-foreground">{description}</p>
+          // Oculta en mobile: es texto secundario/explicativo, no crítico — en pantallas
+          // chicas cuesta más espacio vertical del que vale (ver /whatsapp).
+          <p className="hidden max-w-xl text-sm leading-relaxed text-muted-foreground sm:block">
+            {description}
+          </p>
         ) : null}
       </div>
       {children ? (

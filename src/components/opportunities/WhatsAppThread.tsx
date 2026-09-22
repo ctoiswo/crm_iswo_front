@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '@/stores/auth'
-import { Send, Phone, Video, Trash2, Check, CheckCheck, AlertCircle, MessageSquareText, FileText, Download, ArrowLeft } from 'lucide-react'
+import { Send, Phone, Video, Trash2, Check, CheckCheck, AlertCircle, MessageSquareText, FileText, Download, ArrowLeft, ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -148,6 +148,12 @@ export function WhatsAppThread({
     return inbound.reduce<string>((latest, m) => (m.timestamp > latest ? m.timestamp : latest), inbound[0].timestamp)
   }, [messages])
   const serviceWindowOpen = !!lastInboundAt && Date.now() - new Date(lastInboundAt).getTime() < SERVICE_WINDOW_MS
+
+  // Colapsado por defecto salvo que haga falta de entrada (fuera de la
+  // ventana de 24h, sin plantilla no se puede escribir nada) — libera
+  // bastante alto de pantalla en mobile, donde ya cuesta ver la
+  // conversación. Una vez que el usuario lo toca, queda como lo dejó.
+  const [templatePanelOpen, setTemplatePanelOpen] = useState(() => !serviceWindowOpen)
 
   const [templateId, setTemplateId] = useState('')
   const [templateVars, setTemplateVars] = useState<string[]>([])
@@ -301,7 +307,7 @@ export function WhatsAppThread({
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden border-0 sm:rounded-lg sm:border">
       {authIssueMessage && (
         <div className="shrink-0 border-b border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
           <div className="flex gap-2">
@@ -470,14 +476,26 @@ export function WhatsAppThread({
       )}
 
       {canSendProp && templates.length > 0 && (
-        <div className="shrink-0 border-t border-border/60 bg-muted/30 px-3 py-2">
-          <div className="flex items-center gap-2">
+        <div className="shrink-0 border-t border-border/60 bg-muted/30">
+          <button
+            type="button"
+            className="flex w-full items-center gap-2 px-3 py-2 text-left"
+            onClick={() => setTemplatePanelOpen((v) => !v)}
+            aria-expanded={templatePanelOpen}
+          >
             <MessageSquareText className="size-3.5 shrink-0 text-muted-foreground" />
-            <span className="shrink-0 text-xs font-medium text-muted-foreground">
+            <span className="min-w-0 flex-1 truncate text-xs font-medium text-muted-foreground">
               {serviceWindowOpen ? 'Enviar plantilla' : 'Iniciar con plantilla (fuera de ventana 24h)'}
             </span>
-          </div>
-          <div className="mt-1.5 flex flex-wrap items-center gap-2">
+            <ChevronDown
+              className={cn(
+                'size-3.5 shrink-0 text-muted-foreground transition-transform',
+                templatePanelOpen && 'rotate-180',
+              )}
+            />
+          </button>
+          {templatePanelOpen && (
+          <div className="flex flex-wrap items-center gap-2 px-3 pb-2">
             <Select value={templateId} onValueChange={handleSelectTemplate}>
               <SelectTrigger className="h-8 flex-1 min-w-[160px] text-xs">
                 <SelectValue placeholder="Elegir plantilla…" />
@@ -511,6 +529,7 @@ export function WhatsAppThread({
               {sendTemplateMutation.isPending ? 'Enviando…' : 'Enviar plantilla'}
             </Button>
           </div>
+          )}
         </div>
       )}
 

@@ -155,7 +155,7 @@ function WhatsappPage() {
   }, [selected?.contactId, selected?.unreadCount])
 
   return (
-    <AppPageShell className="h-full min-h-0" contentClassName="flex h-full min-h-0 flex-col gap-4 p-4 lg:p-6">
+    <AppPageShell className="h-full min-h-0" contentClassName="flex h-full min-h-0 flex-col gap-2 p-2 sm:gap-4 lg:p-6">
       <PageHeader
         title="WhatsApp"
         description="Bandeja de entrada, plantillas y todo lo relacionado con WhatsApp, en un solo lugar (RFC §6.6)."
@@ -186,7 +186,7 @@ function WhatsappPage() {
         </TabsList>
 
         <TabsContent value="inbox" className="flex min-h-0 flex-1 flex-col">
-          <div className="flex min-h-0 flex-1 overflow-hidden rounded-lg border">
+          <div className="flex min-h-0 flex-1 overflow-hidden border-0 sm:rounded-lg sm:border">
             <ConversationList
               conversations={conversations}
               isLoading={isLoading}
@@ -202,7 +202,7 @@ function WhatsappPage() {
               className={selected ? 'hidden lg:flex' : 'flex'}
             />
 
-            <div className={`min-h-0 flex-1 flex-col p-3 lg:flex ${selected ? 'flex' : 'hidden'}`}>
+            <div className={`min-h-0 flex-1 flex-col p-0 sm:p-3 lg:flex ${selected ? 'flex' : 'hidden'}`}>
               {selected ? (
                 <WhatsAppThread
                   contactId={selected.contactId}

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createFileRoute, useSearch } from '@tanstack/react-router'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
 import { MessageCircle, Bell, BellOff } from 'lucide-react'
 import { AppPageShell } from '@/components/layout/AppPageShell'
@@ -15,7 +15,7 @@ import { useAuthStore } from '@/stores/auth'
 import { getAuthQueryScope, queryKeys } from '@/lib/queryClient'
 import api from '@/lib/api'
 import { jsonApiPrimaryList } from '@/lib/opportunityApi'
-import { fetchConversations, markConversationRead } from '@/lib/whatsappInboxApi'
+import { fetchConversations, markConversationRead, type ConversationRow } from '@/lib/whatsappInboxApi'
 import {
   playNewMessageSound,
   isSoundEnabled,
@@ -90,28 +90,49 @@ function WhatsappPage() {
     unlockAudioOnFirstInteraction()
   }
 
-  const { data: listResult, isLoading } = useQuery({
+  // Bandeja paginada (items:50/página) — con más de 50 conversaciones en un
+  // tenant (p. ej. tras una campaña masiva) la carga inicial ya no alcanza
+  // a traerlas todas, así que se acumulan páginas con "Cargar más" en vez
+  // de perder las conversaciones más antiguas silenciosamente.
+  const {
+    data: listPages,
+    isLoading,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery({
     queryKey: queryKeys.whatsappConversations.list(authScope, { scope }),
-    queryFn: () => fetchConversations({ scope }),
+    queryFn: ({ pageParam }) => fetchConversations({ scope, page: pageParam }),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) => {
+      const p = lastPage.pagination
+      return p && p.page < p.pages ? p.page + 1 : undefined
+    },
     enabled: Boolean(authScope),
     refetchInterval: 8000,
     refetchOnWindowFocus: true,
   })
 
-  const conversations = useMemo(() => listResult?.conversations ?? [], [listResult])
+  const conversations = useMemo(() => {
+    const byContact = new Map<string, ConversationRow>()
+    for (const page of listPages?.pages ?? []) {
+      for (const c of page.conversations) byContact.set(c.contactId, c)
+    }
+    return Array.from(byContact.values())
+  }, [listPages])
 
   // Sonido de mensaje nuevo: se dispara cuando el total de no leídos sube
   // entre un poll y el siguiente (nunca en la carga inicial). Funciona aunque
   // el mensaje nuevo sea de una conversación distinta a la abierta.
   const previousUnreadRef = useRef<number | null>(null)
   useEffect(() => {
-    if (!listResult) return
+    if (!listPages) return
     const totalUnread = conversations.reduce((sum, c) => sum + c.unreadCount, 0)
     if (previousUnreadRef.current !== null && totalUnread > previousUnreadRef.current) {
       playNewMessageSound()
     }
     previousUnreadRef.current = totalUnread
-  }, [listResult, conversations])
+  }, [listPages, conversations])
   const selected = useMemo(
     () => conversations.find((c) => c.contactId === search.contact) ?? null,
     [conversations, search.contact],
@@ -200,6 +221,9 @@ function WhatsappPage() {
               canSeeAll={canSeeAll}
               search={searchText}
               onSearchChange={setSearchText}
+              hasMore={Boolean(hasNextPage)}
+              isLoadingMore={isFetchingNextPage}
+              onLoadMore={() => void fetchNextPage()}
               // Mobile: se ve la lista O el hilo, nunca los dos apretados en la
               // misma pantalla angosta. Desde lg: siempre lado a lado.
               className={selected ? 'hidden lg:flex' : 'flex'}

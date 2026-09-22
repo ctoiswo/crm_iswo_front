@@ -1,5 +1,6 @@
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Search, Inbox } from 'lucide-react'
@@ -19,6 +20,9 @@ export function ConversationList({
   canSeeAll,
   search,
   onSearchChange,
+  hasMore = false,
+  isLoadingMore = false,
+  onLoadMore,
   className,
 }: {
   conversations: ConversationRow[]
@@ -30,6 +34,11 @@ export function ConversationList({
   canSeeAll: boolean
   search: string
   onSearchChange: (value: string) => void
+  /** Hay más conversaciones en el servidor que no se cargaron todavía
+   * (más de una página) — ver /whatsapp, que pagina con useInfiniteQuery. */
+  hasMore?: boolean
+  isLoadingMore?: boolean
+  onLoadMore?: () => void
   /** Controla si el panel se muestra en mobile — en /whatsapp se oculta
    * (`hidden lg:flex`) cuando hay una conversación abierta, para que en
    * pantallas chicas se vea el hilo de a uno por vez, no los dos apretados. */
@@ -88,14 +97,29 @@ export function ConversationList({
             </p>
           </div>
         ) : (
-          filtered.map((c) => (
-            <ConversationListItem
-              key={c.contactId}
-              conversation={c}
-              active={c.contactId === activeContactId}
-              onClick={() => onSelect(c.contactId)}
-            />
-          ))
+          <>
+            {filtered.map((c) => (
+              <ConversationListItem
+                key={c.contactId}
+                conversation={c}
+                active={c.contactId === activeContactId}
+                onClick={() => onSelect(c.contactId)}
+              />
+            ))}
+            {hasMore && (
+              <div className="p-3">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  disabled={isLoadingMore}
+                  onClick={onLoadMore}
+                >
+                  {isLoadingMore ? 'Cargando…' : 'Cargar más conversaciones'}
+                </Button>
+              </div>
+            )}
+          </>
         )}
       </ScrollArea>
     </div>

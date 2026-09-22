@@ -45,6 +45,11 @@ export type ThreadMessage = {
   status: 'pending' | 'queued' | 'sent' | 'delivered' | 'read' | 'failed'
   errorMessage?: string
   mediaUrl?: string
+  /** Solo en mensajes de plantilla (content viene vacío: el texto real que
+   * aprobó Meta no se guarda en el CRM) — para mostrar algo en vez de una
+   * burbuja en blanco. */
+  templateName?: string
+  templateParams?: string[]
 }
 
 type MediaKind = 'image' | 'audio' | 'video' | 'file'
@@ -438,7 +443,17 @@ export function WhatsAppThread({
                       )}
                     >
                     {msg.mediaUrl && <MediaPreview url={msg.mediaUrl} />}
-                    {msg.content && <p className="text-sm whitespace-pre-wrap break-words">{msg.content}</p>}
+                    {msg.content ? (
+                      <p className="text-sm whitespace-pre-wrap break-words">{msg.content}</p>
+                    ) : msg.templateName ? (
+                      <p className="flex items-center gap-1.5 text-sm italic text-muted-foreground">
+                        <MessageSquareText className="size-3.5 shrink-0" />
+                        Plantilla: {msg.templateName}
+                        {msg.templateParams && msg.templateParams.length > 0
+                          ? ` (${msg.templateParams.join(', ')})`
+                          : ''}
+                      </p>
+                    ) : null}
                     {msg.isOutgoing && msg.status === 'failed' && msg.errorMessage ? (
                       <p className="text-[11px] text-destructive mt-1 break-words" title={msg.errorMessage}>
                         {msg.errorMessage}

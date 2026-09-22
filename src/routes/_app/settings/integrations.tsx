@@ -161,7 +161,7 @@ const PROVIDER_CATALOG: ProviderCatalogEntry[] = [
     category: 'messaging',
     title: 'WhatsApp Cloud API',
     description:
-      'Usa las URLs Cloud del bloque del servidor. Guarda el Phone number ID aquí; debe coincidir con metadata.phone_number_id del payload.',
+      'Usa las URLs Cloud del bloque del servidor. Guarda el Phone number ID aquí; debe coincidir con metadata.phone_number_id del payload. El WABA ID (abajo) es necesario para el botón «Sincronizar» del catálogo de plantillas — el access token debe tener el permiso whatsapp_business_management además de whatsapp_business_messaging.',
     icon: MessageCircle,
     accountIdentifierLabel: 'Phone number ID (Meta Cloud API)',
     accountIdentifierPlaceholder: 'Phone number ID en Meta Developer',
@@ -174,6 +174,14 @@ const PROVIDER_CATALOG: ProviderCatalogEntry[] = [
         type: 'password',
         placeholder:
           'EAAG… (OAuth User token, no el App Secret; sin escribir «Bearer », sin comillas)',
+      },
+    ],
+    metadataFields: [
+      {
+        key: 'waba_id',
+        label: 'WABA ID (WhatsApp Business Account)',
+        type: 'text',
+        placeholder: '1606763050800373',
       },
     ],
   },

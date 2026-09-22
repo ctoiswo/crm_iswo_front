@@ -5,6 +5,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Search, Inbox } from 'lucide-react'
 import { ConversationListItem } from './ConversationListItem'
 import type { ConversationRow } from '@/lib/whatsappInboxApi'
+import { cn } from '@/lib/utils'
 
 export type InboxScope = 'mine' | 'unassigned' | 'all'
 
@@ -18,6 +19,7 @@ export function ConversationList({
   canSeeAll,
   search,
   onSearchChange,
+  className,
 }: {
   conversations: ConversationRow[]
   isLoading: boolean
@@ -28,6 +30,10 @@ export function ConversationList({
   canSeeAll: boolean
   search: string
   onSearchChange: (value: string) => void
+  /** Controla si el panel se muestra en mobile — en /whatsapp se oculta
+   * (`hidden lg:flex`) cuando hay una conversación abierta, para que en
+   * pantallas chicas se vea el hilo de a uno por vez, no los dos apretados. */
+  className?: string
 }) {
   const filtered = search.trim()
     ? conversations.filter((c) => {
@@ -41,7 +47,7 @@ export function ConversationList({
     : conversations
 
   return (
-    <div className="flex h-full min-h-0 w-full max-w-[320px] shrink-0 flex-col border-r">
+    <div className={cn('flex h-full min-h-0 w-full max-w-[320px] shrink-0 flex-col border-r', className)}>
       <div className="shrink-0 space-y-3 border-b p-3">
         <div className="relative">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />

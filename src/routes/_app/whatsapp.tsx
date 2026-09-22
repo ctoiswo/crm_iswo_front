@@ -114,9 +114,17 @@ function WhatsappPage() {
     [conversations, search.contact],
   )
 
-  // Auto-selecciona la primera conversación si no hay ninguna en la URL.
+  // Auto-selecciona la primera conversación solo en la carga inicial (nunca
+  // más después) — si no, al volver a la lista en mobile (botón "atrás",
+  // que limpia el contact de la URL) esto reseleccionaba la primera de
+  // nuevo al toque y era imposible ver la lista.
+  const hasAutoSelectedRef = useRef(false)
   useEffect(() => {
-    if (!search.contact && conversations.length > 0) {
+    if (search.contact) hasAutoSelectedRef.current = true
+  }, [search.contact])
+  useEffect(() => {
+    if (!search.contact && conversations.length > 0 && !hasAutoSelectedRef.current) {
+      hasAutoSelectedRef.current = true
       void navigate({ search: { ...search, contact: conversations[0].contactId }, replace: true })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -189,9 +197,12 @@ function WhatsappPage() {
               canSeeAll={canSeeAll}
               search={searchText}
               onSearchChange={setSearchText}
+              // Mobile: se ve la lista O el hilo, nunca los dos apretados en la
+              // misma pantalla angosta. Desde lg: siempre lado a lado.
+              className={selected ? 'hidden lg:flex' : 'flex'}
             />
 
-            <div className="flex min-h-0 flex-1 flex-col p-3">
+            <div className={`min-h-0 flex-1 flex-col p-3 lg:flex ${selected ? 'flex' : 'hidden'}`}>
               {selected ? (
                 <WhatsAppThread
                   contactId={selected.contactId}
@@ -201,9 +212,10 @@ function WhatsappPage() {
                   isLoading={threadLoading}
                   canSend={canSend}
                   canDelete={false}
+                  onBack={() => void navigate({ search: { ...search, contact: undefined } })}
                 />
               ) : (
-                <div className="flex flex-1 flex-col items-center justify-center gap-2 text-muted-foreground">
+                <div className="hidden flex-1 flex-col items-center justify-center gap-2 text-muted-foreground lg:flex">
                   <MessageCircle className="size-10" />
                   <p className="text-sm">Selecciona una conversación para ver el hilo</p>
                 </div>

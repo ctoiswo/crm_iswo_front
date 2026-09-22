@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '@/stores/auth'
-import { Send, Phone, Video, Trash2, Check, CheckCheck, AlertCircle, MessageSquareText, FileText, Download } from 'lucide-react'
+import { Send, Phone, Video, Trash2, Check, CheckCheck, AlertCircle, MessageSquareText, FileText, Download, ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -106,6 +106,9 @@ interface WhatsAppThreadProps {
   canSend?: boolean
   /** Borrar hilo completo — solo disponible en modo oportunidad (no hay endpoint standalone). */
   canDelete?: boolean
+  /** Si se pasa, muestra una flecha "volver" (solo visible en mobile, lg:hidden) que
+   * llama esto — en /whatsapp vuelve a la lista de conversaciones sin reseleccionar. */
+  onBack?: () => void
 }
 
 export function WhatsAppThread({
@@ -117,6 +120,7 @@ export function WhatsAppThread({
   isLoading = false,
   canSend: canSendProp = true,
   canDelete = Boolean(opportunityId),
+  onBack,
 }: WhatsAppThreadProps) {
   const queryClient = useQueryClient()
   const canManageIntegrations = useAuthStore((s) => s.isAdmin() || s.isManager())
@@ -327,6 +331,18 @@ export function WhatsAppThread({
       )}
       <div className="flex shrink-0 items-center justify-between px-4 py-3 bg-primary text-primary-foreground">
         <div className="flex items-center gap-3 min-w-0">
+          {onBack && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="-ml-2 shrink-0 text-primary-foreground hover:bg-primary-foreground/15 lg:hidden"
+              type="button"
+              onClick={onBack}
+              aria-label="Volver a conversaciones"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+          )}
           <div className="min-w-0">
             <p className="font-medium truncate">{contactName}</p>
             <p className="text-xs text-primary-foreground/80 truncate">

@@ -77,6 +77,16 @@ const FIELD_OPTIONS = [
   { value: 'opportunity.title', label: 'Título de la oportunidad' },
 ]
 
+/** Sentinel para el modo "texto fijo" en el Select de variables — nunca se
+ * manda al backend, solo indica que fieldMap[i] es texto libre en vez de
+ * uno de los FIELD_OPTIONS. Antes no existía esta opción: para una
+ * variable como "nuestra empresa" en la plantilla, no había forma de
+ * escribir el nombre fijo — solo se podía elegir un campo del contacto/
+ * oportunidad, así que terminaba saliendo la empresa DEL LEAD en vez de
+ * la propia (incidente real: campaña enviada a 40 leads con este bug).
+ */
+const CUSTOM_TEXT_VALUE = '__custom_text__'
+
 const TEMPERATURE_OPTIONS = [
   { value: 'cold', label: 'Frío' },
   { value: 'warm', label: 'Tibio' },
@@ -96,6 +106,8 @@ export function WhatsappCampaignsPanel() {
   const [name, setName] = useState('')
   const [templateId, setTemplateId] = useState('')
   const [fieldMap, setFieldMap] = useState<string[]>([])
+  /** Slots en modo "texto fijo" (muestran un Input en vez del valor del Select). */
+  const [customSlots, setCustomSlots] = useState<boolean[]>([])
   const [filters, setFilters] = useState<WhatsappCampaignAudienceFilters>(emptyFilters)
 
   const { data: campaigns = [], isLoading } = useQuery({
@@ -137,7 +149,10 @@ export function WhatsappCampaignsPanel() {
   })
 
   useEffect(() => {
-    if (selectedTemplate) setFieldMap(selectedTemplate.variableLabels.map(() => ''))
+    if (selectedTemplate) {
+      setFieldMap(selectedTemplate.variableLabels.map(() => ''))
+      setCustomSlots(selectedTemplate.variableLabels.map(() => false))
+    }
   }, [selectedTemplate])
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['whatsappCampaigns'] })
@@ -198,6 +213,7 @@ export function WhatsappCampaignsPanel() {
     setName('')
     setTemplateId('')
     setFieldMap([])
+    setCustomSlots([])
     setFilters(emptyFilters)
     setDialogOpen(true)
   }
@@ -300,24 +316,42 @@ export function WhatsappCampaignsPanel() {
               <div className="space-y-2">
                 <Label>Variables de la plantilla</Label>
                 <p className="text-xs text-muted-foreground">
-                  De qué campo del contacto/oportunidad sacar cada variable al enviar.
+                  De qué campo del contacto/oportunidad sacar cada variable al enviar, o elegí
+                  "Texto fijo" para escribir un valor que no cambia (ej. el nombre de tu empresa).
                 </p>
                 {selectedTemplate.variableLabels.map((label, i) => (
-                  <div key={i} className="flex items-center gap-2">
-                    <span className="w-32 shrink-0 truncate text-xs text-muted-foreground">{label}</span>
-                    <Select
-                      value={fieldMap[i] ?? ''}
-                      onValueChange={(v) => setFieldMap((m) => m.map((x, idx) => (idx === i ? v : x)))}
-                    >
-                      <SelectTrigger className="h-8 flex-1 text-xs">
-                        <SelectValue placeholder="Elegir campo…" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {FIELD_OPTIONS.map((f) => (
-                          <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                  <div key={i} className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="w-32 shrink-0 truncate text-xs text-muted-foreground">{label}</span>
+                      <Select
+                        value={customSlots[i] ? CUSTOM_TEXT_VALUE : (fieldMap[i] ?? '')}
+                        onValueChange={(v) => {
+                          const isCustom = v === CUSTOM_TEXT_VALUE
+                          setCustomSlots((m) => m.map((x, idx) => (idx === i ? isCustom : x)))
+                          setFieldMap((m) => m.map((x, idx) => (idx === i ? (isCustom ? '' : v) : x)))
+                        }}
+                      >
+                        <SelectTrigger className="h-8 flex-1 text-xs">
+                          <SelectValue placeholder="Elegir campo…" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {FIELD_OPTIONS.map((f) => (
+                            <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>
+                          ))}
+                          <SelectItem value={CUSTOM_TEXT_VALUE}>Texto fijo (escribir)…</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    {customSlots[i] && (
+                      <Input
+                        value={fieldMap[i] ?? ''}
+                        onChange={(e) =>
+                          setFieldMap((m) => m.map((x, idx) => (idx === i ? e.target.value : x)))
+                        }
+                        placeholder="Ej: SIG ISWO Software + IA"
+                        className="ml-[8.5rem] h-8 text-xs"
+                      />
+                    )}
                   </div>
                 ))}
               </div>

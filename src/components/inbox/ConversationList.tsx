@@ -3,6 +3,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Skeleton } from '@/components/ui/skeleton'
+import { useState } from 'react'
 import { Search, Inbox } from 'lucide-react'
 import { ConversationListItem } from './ConversationListItem'
 import type { ConversationRow } from '@/lib/whatsappInboxApi'
@@ -44,16 +45,21 @@ export function ConversationList({
    * pantallas chicas se vea el hilo de a uno por vez, no los dos apretados. */
   className?: string
 }) {
-  const filtered = search.trim()
-    ? conversations.filter((c) => {
-        const q = search.trim().toLowerCase()
-        return (
-          c.contactName?.toLowerCase().includes(q) ||
-          c.contactPhone?.toLowerCase().includes(q) ||
-          c.lastMessageBody?.toLowerCase().includes(q)
-        )
-      })
-    : conversations
+  const [unreadOnly, setUnreadOnly] = useState(false)
+  const unreadTotal = conversations.filter((c) => c.unreadCount > 0).length
+
+  const q = search.trim().toLowerCase()
+  const filtered = conversations.filter((c) => {
+    // La conversación abierta se mantiene visible aunque se acabe de marcar
+    // como leída — si no, desaparecería del filtro "No leídos" al abrirla.
+    if (unreadOnly && c.unreadCount === 0 && c.contactId !== activeContactId) return false
+    if (!q) return true
+    return (
+      c.contactName?.toLowerCase().includes(q) ||
+      c.contactPhone?.toLowerCase().includes(q) ||
+      c.lastMessageBody?.toLowerCase().includes(q)
+    )
+  })
 
   return (
     <div className={cn('flex h-full min-h-0 w-full max-w-[320px] shrink-0 flex-col border-r', className)}>
@@ -74,6 +80,31 @@ export function ConversationList({
             <TabsTrigger value="all" disabled={!canSeeAll} className="text-xs">Todas</TabsTrigger>
           </TabsList>
         </Tabs>
+        <div className="flex gap-1.5" role="group" aria-label="Filtrar por estado de lectura">
+          <Button
+            size="sm"
+            variant={unreadOnly ? 'outline' : 'secondary'}
+            className="h-7 flex-1 text-xs"
+            aria-pressed={!unreadOnly}
+            onClick={() => setUnreadOnly(false)}
+          >
+            Todas
+          </Button>
+          <Button
+            size="sm"
+            variant={unreadOnly ? 'secondary' : 'outline'}
+            className="h-7 flex-1 gap-1.5 text-xs"
+            aria-pressed={unreadOnly}
+            onClick={() => setUnreadOnly(true)}
+          >
+            No leídas
+            {unreadTotal > 0 && (
+              <span className="rounded-full bg-primary px-1.5 text-[10px] leading-4 text-primary-foreground">
+                {unreadTotal}
+              </span>
+            )}
+          </Button>
+        </div>
       </div>
 
       <ScrollArea className="min-h-0 flex-1">
@@ -93,7 +124,11 @@ export function ConversationList({
           <div className="flex flex-col items-center gap-2 px-4 py-12 text-center text-muted-foreground">
             <Inbox className="size-8" />
             <p className="text-sm">
-              {scope === 'unassigned' ? 'No hay leads sin asignar' : 'No hay conversaciones'}
+              {unreadOnly
+                ? 'No hay conversaciones sin leer'
+                : scope === 'unassigned'
+                  ? 'No hay leads sin asignar'
+                  : 'No hay conversaciones'}
             </p>
           </div>
         ) : (

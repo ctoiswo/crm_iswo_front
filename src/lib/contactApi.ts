@@ -49,6 +49,9 @@ export interface ContactSummary {
   landingOrigins?: ContactLandingOrigin[]
   whatsappOptedIn?: boolean
   whatsappOptInSource?: string
+  /** El contacto dijo explícitamente que NO quiere WhatsApp ("No autorizo"). */
+  whatsappOptedOut?: boolean
+  whatsappOptOutAt?: string
 }
 
 type ContactAttributes = {
@@ -75,6 +78,8 @@ type ContactAttributes = {
   landing_origins?: ContactLandingOrigin[]
   whatsapp_opted_in?: boolean
   whatsapp_opt_in_source?: string
+  whatsapp_opted_out?: boolean
+  whatsapp_opt_out_at?: string | null
 }
 
 export interface ContactListFilters {
@@ -140,6 +145,8 @@ export function mapContactResource(resource: JsonApiResource): ContactSummary {
       : undefined,
     whatsappOptedIn: attrs.whatsapp_opted_in === true,
     whatsappOptInSource: attrs.whatsapp_opt_in_source?.trim() || undefined,
+    whatsappOptedOut: attrs.whatsapp_opted_out === true,
+    whatsappOptOutAt: attrs.whatsapp_opt_out_at ?? undefined,
   }
 }
 
@@ -268,8 +275,16 @@ export async function bulkDeleteContacts(ids: string[]): Promise<{ deleted: numb
   return (response.data as { data: { deleted: number } }).data
 }
 
-export async function bulkMarkWhatsappOptIn(ids: string[]): Promise<{ marked: number }> {
+/** `skippedOptedOut`: contactos que dijeron "No" — el backend no los reactiva. */
+export async function bulkMarkWhatsappOptIn(ids: string[]): Promise<{ marked: number; skippedOptedOut: number }> {
   const response = await api.post('/contacts/bulk_whatsapp_opt_in', { ids })
+  const data = (response.data as { data: { marked: number; skipped_opted_out?: number } }).data
+  return { marked: data.marked, skippedOptedOut: Number(data.skipped_opted_out ?? 0) }
+}
+
+/** Registra que el contacto NO autoriza WhatsApp (queda fuera de toda campaña). */
+export async function bulkMarkWhatsappOptOut(ids: string[]): Promise<{ marked: number }> {
+  const response = await api.post('/contacts/bulk_whatsapp_opt_out', { ids })
   return (response.data as { data: { marked: number } }).data
 }
 

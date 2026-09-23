@@ -110,6 +110,10 @@ function WhatsappPage() {
     },
     enabled: Boolean(authScope),
     refetchInterval: 8000,
+    // Seguir consultando con la pestaña en segundo plano: es justo cuando el
+    // sonido de mensaje nuevo sirve (React Query pausa el intervalo por defecto
+    // si la pestaña no está visible, y el sonido nunca llegaba a dispararse).
+    refetchIntervalInBackground: true,
     refetchOnWindowFocus: true,
   })
 
@@ -171,12 +175,23 @@ function WhatsappPage() {
     },
   })
 
+  // Con la pestaña oculta, un mensaje que llega a la conversación abierta no
+  // se marca leído (nadie lo vio): queda como no leído hasta volver.
+  const [pageVisible, setPageVisible] = useState(
+    () => typeof document === 'undefined' || document.visibilityState === 'visible',
+  )
   useEffect(() => {
-    if (selected && selected.unreadCount > 0) {
+    const onVisibility = () => setPageVisible(document.visibilityState === 'visible')
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => document.removeEventListener('visibilitychange', onVisibility)
+  }, [])
+
+  useEffect(() => {
+    if (pageVisible && activeTab === 'inbox' && selected && selected.unreadCount > 0) {
       markReadMutation.mutate(selected.contactId)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selected?.contactId, selected?.unreadCount])
+  }, [selected?.contactId, selected?.unreadCount, pageVisible, activeTab])
 
   return (
     <AppPageShell className="h-full min-h-0" contentClassName="flex h-full min-h-0 flex-col gap-2 p-2 sm:gap-4 lg:p-6">

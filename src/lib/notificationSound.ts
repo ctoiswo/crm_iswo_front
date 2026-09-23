@@ -54,21 +54,37 @@ export function setSoundEnabled(enabled: boolean) {
   }
 }
 
+/** Eventos que el navegador acepta como "activación del usuario" para
+ * desbloquear audio. `pointerdown` solo cuenta con mouse: en pantallas
+ * táctiles el gesto válido es `touchend`/`click` — escuchar solo
+ * `pointerdown` dejaba el sonido bloqueado para siempre en mobile. */
+const UNLOCK_EVENTS = ['pointerdown', 'touchend', 'click', 'keydown'] as const
+
 /** Enganchar una sola vez, apenas monta la página — despierta el AudioContext
- * con el primer click/tecla real para que los sonidos disparados por poll
- * (sin interacción directa) no queden bloqueados por la política de autoplay. */
+ * con una interacción real para que los sonidos disparados por poll (sin
+ * interacción directa) no queden bloqueados por la política de autoplay.
+ * Los listeners se quitan recién cuando el contexto quedó `running`: si el
+ * primer intento no cuenta como gesto válido, se reintenta en el siguiente. */
 export function unlockAudioOnFirstInteraction() {
   if (unlockListenersAttached || typeof window === 'undefined') return
   unlockListenersAttached = true
 
-  const unlock = () => {
-    const ctx = getContext()
-    if (ctx && ctx.state === 'suspended') void ctx.resume()
-    window.removeEventListener('pointerdown', unlock)
-    window.removeEventListener('keydown', unlock)
+  const detach = () => {
+    for (const ev of UNLOCK_EVENTS) window.removeEventListener(ev, unlock, true)
   }
-  window.addEventListener('pointerdown', unlock, { once: true })
-  window.addEventListener('keydown', unlock, { once: true })
+
+  function unlock() {
+    const ctx = getContext()
+    if (!ctx) return detach()
+    if (ctx.state === 'running') return detach()
+    void ctx.resume().then(() => {
+      if (ctx.state === 'running') detach()
+    }).catch(() => {
+      // Gesto no válido para el navegador — se reintenta en el próximo.
+    })
+  }
+
+  for (const ev of UNLOCK_EVENTS) window.addEventListener(ev, unlock, true)
 }
 
 export function playNewMessageSound() {

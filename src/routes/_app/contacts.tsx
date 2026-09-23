@@ -18,6 +18,7 @@ import {
   Trash2,
   Upload,
   MessageCircle,
+  MessageCircleOff,
 } from 'lucide-react'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Button } from '@/components/ui/button'
@@ -66,6 +67,7 @@ import { ContactsQuickMetrics } from '@/components/contacts/ContactsQuickMetrics
 import {
   bulkDeleteContacts,
   bulkMarkWhatsappOptIn,
+  bulkMarkWhatsappOptOut,
   contactListErrorMessage,
   deleteContact,
   fetchAllContacts,
@@ -124,6 +126,7 @@ function ContactsPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false)
   const [confirmBulkOptIn, setConfirmBulkOptIn] = useState(false)
+  const [confirmBulkOptOut, setConfirmBulkOptOut] = useState(false)
   const [importDialogOpen, setImportDialogOpen] = useState(false)
   const [selectingAllOptIn, setSelectingAllOptIn] = useState(false)
 
@@ -308,12 +311,32 @@ function ContactsPage() {
           ? `${result.marked} contacto(s) marcado(s) con opt-in de WhatsApp`
           : 'Los contactos seleccionados ya tenían opt-in',
       )
+      if (result.skippedOptedOut > 0) {
+        toast.info(`${result.skippedOptedOut} contacto(s) no autorizaron WhatsApp y se dejaron sin opt-in`)
+      }
       setSelectedIds(new Set())
       setConfirmBulkOptIn(false)
       void invalidateContactsQueries(queryClient)
     },
     onError: (err: unknown) => {
       toast.error(formatRailsError(err, 'No se pudo marcar el opt-in de WhatsApp'))
+    },
+  })
+
+  const bulkOptOutMutation = useMutation({
+    mutationFn: () => bulkMarkWhatsappOptOut(Array.from(selectedIds)),
+    onSuccess: (result) => {
+      toast.success(
+        result.marked > 0
+          ? `${result.marked} contacto(s) marcado(s) como "No autoriza WhatsApp"`
+          : 'Los contactos seleccionados ya estaban marcados como "No autoriza"',
+      )
+      setSelectedIds(new Set())
+      setConfirmBulkOptOut(false)
+      void invalidateContactsQueries(queryClient)
+    },
+    onError: (err: unknown) => {
+      toast.error(formatRailsError(err, 'No se pudo registrar que no autoriza WhatsApp'))
     },
   })
 
@@ -354,7 +377,7 @@ function ContactsPage() {
         owner_id: listFiltersPerson.owner_id,
         segment: listFiltersPerson.segment,
       })
-      const withoutOptIn = all.filter((c) => !c.whatsappOptedIn).map((c) => c.id)
+      const withoutOptIn = all.filter((c) => !c.whatsappOptedIn && !c.whatsappOptedOut).map((c) => c.id)
       if (withoutOptIn.length === 0) {
         toast.info('Todos los contactos (con los filtros actuales) ya tienen opt-in de WhatsApp')
         return
@@ -538,6 +561,17 @@ function ContactsPage() {
                   Marcar opt-in WhatsApp
                 </Button>
               )}
+              {canManageWhatsappOptIn && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-1.5"
+                  onClick={() => setConfirmBulkOptOut(true)}
+                >
+                  <MessageCircleOff className="size-3.5" />
+                  No autoriza WhatsApp
+                </Button>
+              )}
               {canDeleteContacts && (
                 <Button
                   size="sm"
@@ -677,7 +711,19 @@ function ContactsPage() {
                             )}
                           </TableCell>
                           <TableCell>
-                            {contact.whatsappOptedIn ? (
+                            {contact.whatsappOptedOut ? (
+                              <Badge
+                                className="gap-1 bg-destructive/10 text-destructive hover:bg-destructive/10 text-xs"
+                                title={
+                                  contact.whatsappOptOutAt
+                                    ? `No autorizó WhatsApp el ${new Date(contact.whatsappOptOutAt).toLocaleDateString('es-CO')}`
+                                    : 'No autorizó WhatsApp'
+                                }
+                              >
+                                <MessageCircleOff className="size-3" />
+                                No autorizó
+                              </Badge>
+                            ) : contact.whatsappOptedIn ? (
                               <Badge className="gap-1 bg-green-600/10 text-green-700 hover:bg-green-600/10 text-xs">
                                 <MessageCircle className="size-3" />
                                 Opt-in
@@ -715,7 +761,7 @@ function ContactsPage() {
                                 >
                                   Ir a Oportunidades
                                 </DropdownMenuItem>
-                                {canManageWhatsappOptIn && !contact.whatsappOptedIn && (
+                                {canManageWhatsappOptIn && !contact.whatsappOptedIn && !contact.whatsappOptedOut && (
                                   <DropdownMenuItem
                                     onClick={(e) => {
                                       e.stopPropagation()
@@ -724,6 +770,17 @@ function ContactsPage() {
                                     }}
                                   >
                                     Marcar opt-in WhatsApp
+                                  </DropdownMenuItem>
+                                )}
+                                {canManageWhatsappOptIn && !contact.whatsappOptedOut && (
+                                  <DropdownMenuItem
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      setSelectedIds(new Set([contact.id]))
+                                      setConfirmBulkOptOut(true)
+                                    }}
+                                  >
+                                    No autoriza WhatsApp
                                   </DropdownMenuItem>
                                 )}
                                 {canDeleteContacts && (
@@ -998,6 +1055,29 @@ function ContactsPage() {
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={() => bulkOptInMutation.mutate()}>
               Confirmar opt-in
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={confirmBulkOptOut}
+        onOpenChange={(o) => { if (!o) setConfirmBulkOptOut(false) }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>No autoriza WhatsApp — {selectedIds.size} contacto(s)</AlertDialogTitle>
+            <AlertDialogDescription>
+              Registra que estos contactos dijeron que NO quieren recibir mensajes de WhatsApp (por
+              teléfono, email, en persona…). Se les quita el opt-in y quedan fuera de todas las
+              campañas, incluidas las de solicitud de autorización. Solo vuelven a quedar habilitados
+              si ellos mismos responden "Sí" por WhatsApp.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={() => bulkOptOutMutation.mutate()}>
+              Registrar "No autoriza"
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

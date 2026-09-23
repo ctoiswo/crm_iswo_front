@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, Play, Pause, X, Users } from 'lucide-react'
+import { Plus, Play, Pause, Pencil, X, Users } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -34,6 +34,7 @@ import {
 import {
   fetchWhatsappCampaigns,
   createWhatsappCampaign,
+  updateWhatsappCampaign,
   fetchAudiencePreview,
   launchWhatsappCampaign,
   pauseWhatsappCampaign,
@@ -103,6 +104,8 @@ const emptyFilters: WhatsappCampaignAudienceFilters = {}
 export function WhatsappCampaignsPanel() {
   const queryClient = useQueryClient()
   const [dialogOpen, setDialogOpen] = useState(false)
+  /** id del borrador en edición; null = creando una campaña nueva. */
+  const [editingId, setEditingId] = useState<string | null>(null)
   const [name, setName] = useState('')
   const [templateId, setTemplateId] = useState('')
   const [fieldMap, setFieldMap] = useState<string[]>([])
@@ -148,26 +151,30 @@ export function WhatsappCampaignsPanel() {
     enabled: dialogOpen,
   })
 
-  useEffect(() => {
-    if (selectedTemplate) {
-      setFieldMap(selectedTemplate.variableLabels.map(() => ''))
-      setCustomSlots(selectedTemplate.variableLabels.map(() => false))
-    }
-  }, [selectedTemplate])
+  // Reinicia el mapeo solo cuando el usuario cambia de plantilla (no al abrir
+  // un borrador para editar, que ya trae su variable_field_map guardado).
+  const selectTemplate = (id: string) => {
+    setTemplateId(id)
+    const labels = templates.find((t) => t.id === id)?.variableLabels ?? []
+    setFieldMap(labels.map(() => ''))
+    setCustomSlots(labels.map(() => false))
+  }
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['whatsappCampaigns'] })
 
-  const createMutation = useMutation({
-    mutationFn: () =>
-      createWhatsappCampaign({
+  const saveMutation = useMutation({
+    mutationFn: () => {
+      const body = {
         name: name.trim(),
         whatsapp_template_id: templateId,
         variable_field_map: fieldMap,
         audience_filters: filters,
-      }),
+      }
+      return editingId ? updateWhatsappCampaign(editingId, body) : createWhatsappCampaign(body)
+    },
     onSuccess: () => {
       invalidate()
-      toast.success('Campaña creada como borrador')
+      toast.success(editingId ? 'Borrador actualizado' : 'Campaña creada como borrador')
       closeDialog()
     },
     onError: (err) => toast.error(whatsappCampaignErrorMessage(err)),
@@ -210,11 +217,23 @@ export function WhatsappCampaignsPanel() {
   })
 
   const openCreate = () => {
+    setEditingId(null)
     setName('')
     setTemplateId('')
     setFieldMap([])
     setCustomSlots([])
     setFilters(emptyFilters)
+    setDialogOpen(true)
+  }
+
+  const openEdit = (c: WhatsappCampaign) => {
+    const isField = (v: string) => FIELD_OPTIONS.some((f) => f.value === v)
+    setEditingId(c.id)
+    setName(c.name)
+    setTemplateId(c.whatsappTemplateId)
+    setFieldMap(c.variableFieldMap)
+    setCustomSlots(c.variableFieldMap.map((v) => v !== '' && !isField(v)))
+    setFilters(c.audienceFilters ?? emptyFilters)
     setDialogOpen(true)
   }
 
@@ -267,6 +286,7 @@ export function WhatsappCampaignsPanel() {
             <CampaignRow
               key={c.id}
               campaign={c}
+              onEdit={() => openEdit(c)}
               onLaunch={() => launchMutation.mutate(c.id)}
               onPause={() => pauseMutation.mutate(c.id)}
               onResume={() => resumeMutation.mutate(c.id)}
@@ -285,7 +305,7 @@ export function WhatsappCampaignsPanel() {
       <Dialog open={dialogOpen} onOpenChange={(open) => { if (!open) closeDialog() }}>
         <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Nueva campaña</DialogTitle>
+            <DialogTitle>{editingId ? 'Editar borrador' : 'Nueva campaña'}</DialogTitle>
             <DialogDescription>
               Queda como borrador — revisa la audiencia y lánzala cuando estés listo.
             </DialogDescription>
@@ -300,7 +320,7 @@ export function WhatsappCampaignsPanel() {
 
             <div className="space-y-2">
               <Label>Plantilla</Label>
-              <Select value={templateId} onValueChange={setTemplateId}>
+              <Select value={templateId} onValueChange={selectTemplate}>
                 <SelectTrigger>
                   <SelectValue placeholder="Elegir plantilla…" />
                 </SelectTrigger>
@@ -322,7 +342,7 @@ export function WhatsappCampaignsPanel() {
                 {selectedTemplate.variableLabels.map((label, i) => (
                   <div key={i} className="space-y-1">
                     <div className="flex items-center gap-2">
-                      <span className="w-32 shrink-0 truncate text-xs text-muted-foreground">{label}</span>
+                      <span className="w-32 shrink-0 truncate text-xs text-muted-foreground">{`{{${i + 1}}} ${label}`}</span>
                       <Select
                         value={customSlots[i] ? CUSTOM_TEXT_VALUE : (fieldMap[i] ?? '')}
                         onValueChange={(v) => {
@@ -434,9 +454,9 @@ export function WhatsappCampaignsPanel() {
 
           <DialogFooter>
             <Button variant="outline" onClick={closeDialog}>Cancelar</Button>
-            <Button onClick={() => createMutation.mutate()} disabled={!canSave || createMutation.isPending}>
-              {createMutation.isPending && <Spinner className="mr-2" />}
-              Crear borrador
+            <Button onClick={() => saveMutation.mutate()} disabled={!canSave || saveMutation.isPending}>
+              {saveMutation.isPending && <Spinner className="mr-2" />}
+              {editingId ? 'Guardar cambios' : 'Crear borrador'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -447,6 +467,7 @@ export function WhatsappCampaignsPanel() {
 
 function CampaignRow({
   campaign,
+  onEdit,
   onLaunch,
   onPause,
   onResume,
@@ -454,6 +475,7 @@ function CampaignRow({
   busy,
 }: {
   campaign: WhatsappCampaign
+  onEdit: () => void
   onLaunch: () => void
   onPause: () => void
   onResume: () => void
@@ -472,6 +494,12 @@ function CampaignRow({
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
+          {campaign.status === 'draft' && (
+            <Button size="sm" variant="outline" onClick={onEdit} disabled={busy}>
+              <Pencil className="mr-1.5 h-3.5 w-3.5" />
+              Editar
+            </Button>
+          )}
           {campaign.status === 'draft' && (
             <Button size="sm" onClick={onLaunch} disabled={busy}>
               <Play className="mr-1.5 h-3.5 w-3.5" />

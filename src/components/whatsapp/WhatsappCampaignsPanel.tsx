@@ -434,6 +434,21 @@ export function WhatsappCampaignsPanel() {
                     ))}
                   </SelectContent>
                 </Select>
+
+                <Select
+                  value={filters.whatsapp_consent ?? 'any'}
+                  onValueChange={(v) =>
+                    setFilters((f) => ({ ...f, whatsapp_consent: v === 'confirmed' ? 'confirmed' : undefined }))
+                  }
+                >
+                  <SelectTrigger className="col-span-2 h-8 text-xs" aria-label="Consentimiento de WhatsApp">
+                    <SelectValue placeholder="Consentimiento" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="any">Cualquier contacto con opt-in</SelectItem>
+                    <SelectItem value="confirmed">Solo quienes confirmaron "Sí" por WhatsApp</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="flex items-center gap-2 pt-1 text-xs">

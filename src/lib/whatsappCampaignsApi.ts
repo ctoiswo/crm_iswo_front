@@ -9,6 +9,8 @@ export interface WhatsappCampaignAudienceFilters {
   owner_id?: string
   temperature?: string
   status?: string
+  /** 'confirmed' = solo quienes respondieron "Sí" por WhatsApp (no basta opt-in por import/manual). */
+  whatsapp_consent?: 'confirmed'
 }
 
 export interface WhatsappCampaign {

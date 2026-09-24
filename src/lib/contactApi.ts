@@ -8,6 +8,16 @@ export type ContactKind = 'person' | 'company'
 /** Segmentos de métricas rápidas en /contacts */
 export type ContactSegment = 'clients' | 'prospects' | 'hot_leads' | 'stale'
 
+/** Filtro de consentimiento de WhatsApp en /contacts (ver Contact.filter_by_whatsapp_consent). */
+export type ContactWhatsappConsent = 'confirmed' | 'opted_out' | 'unconfirmed' | 'none'
+
+export const WHATSAPP_CONSENT_LABELS: Record<ContactWhatsappConsent, string> = {
+  confirmed: 'Confirmaron "Sí"',
+  opted_out: 'No autorizaron',
+  unconfirmed: 'Opt-in sin confirmar',
+  none: 'Sin opt-in',
+}
+
 export interface ContactQuickStats {
   clients: number
   prospects: number
@@ -49,6 +59,7 @@ export interface ContactSummary {
   landingOrigins?: ContactLandingOrigin[]
   whatsappOptedIn?: boolean
   whatsappOptInSource?: string
+  whatsappOptInAt?: string
   /** El contacto dijo explícitamente que NO quiere WhatsApp ("No autorizo"). */
   whatsappOptedOut?: boolean
   whatsappOptOutAt?: string
@@ -78,6 +89,7 @@ type ContactAttributes = {
   landing_origins?: ContactLandingOrigin[]
   whatsapp_opted_in?: boolean
   whatsapp_opt_in_source?: string
+  whatsapp_opt_in_at?: string | null
   whatsapp_opted_out?: boolean
   whatsapp_opt_out_at?: string | null
 }
@@ -87,6 +99,7 @@ export interface ContactListFilters {
   kind?: ContactKind
   owner_id?: string
   segment?: ContactSegment
+  whatsapp_consent?: ContactWhatsappConsent
   page?: number
   items?: number
 }
@@ -145,6 +158,7 @@ export function mapContactResource(resource: JsonApiResource): ContactSummary {
       : undefined,
     whatsappOptedIn: attrs.whatsapp_opted_in === true,
     whatsappOptInSource: attrs.whatsapp_opt_in_source?.trim() || undefined,
+    whatsappOptInAt: attrs.whatsapp_opt_in_at ?? undefined,
     whatsappOptedOut: attrs.whatsapp_opted_out === true,
     whatsappOptOutAt: attrs.whatsapp_opt_out_at ?? undefined,
   }
@@ -155,6 +169,7 @@ export function buildContactListParams(filters: ContactListFilters): Record<stri
   if (filters.kind) params.kind = filters.kind
   if (filters.owner_id) params.owner_id = filters.owner_id
   if (filters.segment) params.segment = filters.segment
+  if (filters.whatsapp_consent) params.whatsapp_consent = filters.whatsapp_consent
   if (filters.q && filters.q.length >= 2) params.q = filters.q
   if (filters.page) params.page = filters.page
   if (filters.items) params.items = filters.items

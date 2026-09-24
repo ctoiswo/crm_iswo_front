@@ -75,6 +75,8 @@ import {
   fetchContactStats,
   getCompanyLabel,
   type ContactSegment,
+  type ContactWhatsappConsent,
+  WHATSAPP_CONSENT_LABELS,
   type ContactSummary,
 } from '@/lib/contactApi'
 import { jsonApiPrimaryList, mapUserResource } from '@/lib/opportunityApi'
@@ -92,6 +94,7 @@ const contactsSearchSchema = z.object({
   selected: z.string().optional(),
   owner: z.string().optional(),
   segment: z.enum(['clients', 'prospects', 'hot_leads', 'stale']).optional(),
+  consent: z.enum(['confirmed', 'opted_out', 'unconfirmed', 'none']).optional(),
 })
 
 export const Route = createFileRoute('/_app/contacts')({
@@ -156,7 +159,7 @@ function ContactsPage() {
   useEffect(() => {
     setCurrentPage(1)
     setCompanyPage(1)
-  }, [debouncedQ, searchFromUrl.owner, searchFromUrl.segment])
+  }, [debouncedQ, searchFromUrl.owner, searchFromUrl.segment, searchFromUrl.consent])
 
   const { data: contactStats, isLoading: statsLoading } = useQuery({
     queryKey: queryKeys.contacts.stats(authScope),
@@ -184,10 +187,11 @@ function ContactsPage() {
       kind: 'person' as const,
       owner_id: searchFromUrl.owner,
       segment: searchFromUrl.segment,
+      whatsapp_consent: searchFromUrl.consent,
       page: currentPage,
       items: pageSize,
     }),
-    [debouncedQ, searchFromUrl.owner, searchFromUrl.segment, currentPage],
+    [debouncedQ, searchFromUrl.owner, searchFromUrl.segment, searchFromUrl.consent, currentPage],
   )
 
   const listFiltersCompany = useMemo(
@@ -196,10 +200,11 @@ function ContactsPage() {
       kind: 'company' as const,
       owner_id: searchFromUrl.owner,
       segment: searchFromUrl.segment,
+      whatsapp_consent: searchFromUrl.consent,
       page: companyPage,
       items: pageSize,
     }),
-    [debouncedQ, searchFromUrl.owner, searchFromUrl.segment, companyPage],
+    [debouncedQ, searchFromUrl.owner, searchFromUrl.segment, searchFromUrl.consent, companyPage],
   )
 
   const handleSegmentChange = (segment: ContactSegment | undefined) => {
@@ -376,6 +381,7 @@ function ContactsPage() {
         kind: 'person',
         owner_id: listFiltersPerson.owner_id,
         segment: listFiltersPerson.segment,
+        whatsapp_consent: listFiltersPerson.whatsapp_consent,
       })
       const withoutOptIn = all.filter((c) => !c.whatsappOptedIn && !c.whatsappOptedOut).map((c) => c.id)
       if (withoutOptIn.length === 0) {
@@ -499,6 +505,29 @@ function ContactsPage() {
           </TabsList>
 
           <div className="flex flex-wrap items-center gap-2">
+            <Select
+              value={searchFromUrl.consent ?? '__all__'}
+              onValueChange={(v) =>
+                navigate({
+                  search: (prev) => ({
+                    ...prev,
+                    consent: v === '__all__' ? undefined : (v as ContactWhatsappConsent),
+                  }),
+                })
+              }
+            >
+              <SelectTrigger className="h-9 w-[190px] text-sm" aria-label="Consentimiento WhatsApp">
+                <SelectValue placeholder="WhatsApp" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all__">WhatsApp: todos</SelectItem>
+                {(Object.keys(WHATSAPP_CONSENT_LABELS) as ContactWhatsappConsent[]).map((key) => (
+                  <SelectItem key={key} value={key}>
+                    {WHATSAPP_CONSENT_LABELS[key]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             {showOwnerFilter && (
               <Select
                 value={searchFromUrl.owner ?? '__all__'}
@@ -722,6 +751,18 @@ function ContactsPage() {
                               >
                                 <MessageCircleOff className="size-3" />
                                 No autorizó
+                              </Badge>
+                            ) : contact.whatsappOptedIn && contact.whatsappOptInSource === 'reply_confirm' ? (
+                              <Badge
+                                className="gap-1 bg-green-600/15 text-green-700 hover:bg-green-600/15 text-xs"
+                                title={
+                                  contact.whatsappOptInAt
+                                    ? `Confirmó "Sí" por WhatsApp el ${new Date(contact.whatsappOptInAt).toLocaleDateString('es-CO')}`
+                                    : 'Confirmó "Sí" por WhatsApp'
+                                }
+                              >
+                                <MessageCircle className="size-3" />
+                                Confirmó Sí
                               </Badge>
                             ) : contact.whatsappOptedIn ? (
                               <Badge className="gap-1 bg-green-600/10 text-green-700 hover:bg-green-600/10 text-xs">

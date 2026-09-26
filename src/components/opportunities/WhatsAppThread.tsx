@@ -114,6 +114,8 @@ interface WhatsAppThreadProps {
   /** Si se pasa, muestra una flecha "volver" (solo visible en mobile, lg:hidden) que
    * llama esto — en /whatsapp vuelve a la lista de conversaciones sin reseleccionar. */
   onBack?: () => void
+  /** Tras «Eliminar conversación» (p. ej. volver a la lista en la bandeja). */
+  onDeleted?: () => void
 }
 
 export function WhatsAppThread({
@@ -126,6 +128,7 @@ export function WhatsAppThread({
   canSend: canSendProp = true,
   canDelete = Boolean(opportunityId),
   onBack,
+  onDeleted,
 }: WhatsAppThreadProps) {
   const queryClient = useQueryClient()
   const canManageIntegrations = useAuthStore((s) => s.isAdmin() || s.isManager())
@@ -190,11 +193,17 @@ export function WhatsAppThread({
 
   const clearMutation = useMutation({
     mutationFn: async () => {
-      await api.delete(`/opportunities/${opportunityId}/whatsapp_messages`)
+      await api.delete(
+        opportunityId
+          ? `/opportunities/${opportunityId}/whatsapp_messages`
+          : `/whatsapp_conversations/${contactId}/messages`,
+      )
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: messagesKey })
+      void queryClient.invalidateQueries({ queryKey: queryKeys.whatsappConversations.all })
       toast.success('Conversación eliminada')
+      onDeleted?.()
     },
     onError: (e: unknown) => toast.error(formatRailsError(e)),
   })
@@ -386,7 +395,8 @@ export function WhatsAppThread({
                 <AlertDialogHeader>
                   <AlertDialogTitle>¿Eliminar toda la conversación?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    Se eliminarán los {messages.length} mensajes de este hilo. Esta acción no se puede deshacer.
+                    Se eliminarán del CRM los {messages.length} mensajes de este hilo (en el celular del cliente
+                    no se borran). Esta acción no se puede deshacer.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>

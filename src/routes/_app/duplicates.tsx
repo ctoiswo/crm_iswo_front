@@ -207,7 +207,7 @@ function DuplicatesPage() {
 
   const mergeMutation = useMutation({
     mutationFn: mergeDuplicateFlag,
-    onSuccess: () => { invalidate(); toast.success('Duplicados fusionados en la oportunidad existente'); setMergeConfirmFlag(null) },
+    onSuccess: () => { invalidate(); toast.success('Duplicados fusionados: queda una sola oportunidad y un solo contacto'); setMergeConfirmFlag(null) },
     onError: (err: unknown) => toast.error(formatRailsError(err, 'No se pudo fusionar')),
   })
 
@@ -526,7 +526,9 @@ function DuplicatesPage() {
             <DialogDescription>
               Se consolidará la oportunidad #{mergeConfirmFlag?.opportunityNew?.id} en la existente #
               {mergeConfirmFlag?.opportunityExisting?.id} (responsable:{' '}
-              {mergeConfirmFlag?.opportunityExisting?.owner_name ?? '—'}). Esta acción no se puede deshacer desde aquí.
+              {mergeConfirmFlag?.opportunityExisting?.owner_name ?? '—'}). Si son contactos distintos, también se
+              unen en uno solo: se conservan sus datos, conversaciones y todos sus orígenes (landing, importación,
+              WhatsApp…). Esta acción no se puede deshacer desde aquí.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

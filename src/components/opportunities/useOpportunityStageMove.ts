@@ -41,7 +41,7 @@ function patchOpportunityStage(
 }
 
 /**
- * Mover una oportunidad de etapa (Kanban de escritorio y tablero móvil).
+ * Mover una oportunidad de etapa desde el tablero (StageBoard).
  * Permisos: viewer nunca; red en solo lectura nunca; consultor solo propias.
  * Actualización optimista con rollback si la API falla.
  */

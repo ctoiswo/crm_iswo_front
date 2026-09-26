@@ -29,9 +29,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { OpportunitiesFiltersPopover } from '@/components/opportunities/OpportunitiesFiltersPopover'
-import { KanbanBoard } from '@/components/opportunities/KanbanBoard'
-import { MobileKanban } from '@/components/opportunities/MobileKanban'
-import { useMediaQuery } from '@/lib/useMediaQuery'
+import { StageBoard } from '@/components/opportunities/StageBoard'
 import { OpportunitiesTable } from '@/components/opportunities/OpportunitiesTable'
 import { OpportunitySlideOver } from '@/components/opportunities/OpportunitySlideOver'
 import { QuickAddOpportunity } from '@/components/opportunities/QuickAddOpportunity'
@@ -123,8 +121,6 @@ function OpportunitiesPage() {
   const landingFilterId = search.landing
 
   const view = search.view || 'kanban'
-  // Celular: tablero de una etapa a la vez con botón «Pasar a …» (MobileKanban).
-  const isMobile = useMediaQuery('(max-width: 767px)')
   const selectedId = search.selected
   const showOwnerFilter = userRole === 'admin' || userRole === 'manager'
   const staleDays = tenant?.settings?.stale_days ?? 7
@@ -662,19 +658,11 @@ function OpportunitiesPage() {
           </div>
         ) : view === 'kanban' ? (
           <div className="flex min-h-[280px] flex-1 flex-col">
-            {isMobile ? (
-              <MobileKanban
-                opportunities={filteredOpportunities}
-                pipeline={displayPipeline}
-                onSelectOpportunity={handleSelectOpportunity}
-              />
-            ) : (
-              <KanbanBoard
-                opportunities={filteredOpportunities}
-                pipeline={displayPipeline}
-                onSelectOpportunity={handleSelectOpportunity}
-              />
-            )}
+            <StageBoard
+              opportunities={filteredOpportunities}
+              pipeline={displayPipeline}
+              onSelectOpportunity={handleSelectOpportunity}
+            />
           </div>
         ) : (
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden p-4 lg:p-6">

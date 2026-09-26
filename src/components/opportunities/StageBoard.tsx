@@ -17,7 +17,7 @@ import { TemperatureBadge } from './TemperatureBadge'
 import { useOpportunityStageMove } from './useOpportunityStageMove'
 import type { Opportunity, Pipeline, PipelineStage } from '@/types'
 
-interface MobileKanbanProps {
+interface StageBoardProps {
   opportunities: Opportunity[]
   pipeline?: Pipeline
   onSelectOpportunity: (id: string) => void
@@ -33,11 +33,12 @@ function initials(name?: string): string {
 }
 
 /**
- * Tablero de oportunidades para celular: una etapa a la vez (pestañas arriba,
- * deslizar para cambiar) y botón «Pasar a …» en cada tarjeta para avanzar a la
- * siguiente etapa con un toque. Las etapas de cierre ganado piden confirmación.
+ * Tablero de oportunidades (celular y computador): una etapa a la vez con
+ * pestañas arriba (en celular también se desliza) y botón «Pasar a …» en cada
+ * tarjeta para avanzar a la siguiente etapa con un toque. Las etapas de cierre
+ * ganado piden confirmación. En pantallas anchas las tarjetas van en columnas.
  */
-export function MobileKanban({ opportunities, pipeline, onSelectOpportunity }: MobileKanbanProps) {
+export function StageBoard({ opportunities, pipeline, onSelectOpportunity }: StageBoardProps) {
   const stages = useMemo(
     () => [...(pipeline?.stages ?? [])].sort((a, b) => a.position - b.position),
     [pipeline?.stages],
@@ -106,7 +107,7 @@ export function MobileKanban({ opportunities, pipeline, onSelectOpportunity }: M
         ref={tabsRef}
         role="tablist"
         aria-label="Etapas"
-        className="flex shrink-0 gap-1.5 overflow-x-auto border-b px-3 pb-2.5 pt-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="flex shrink-0 gap-1.5 overflow-x-auto border-b px-3 pb-2.5 pt-1 sm:px-4 sm:pt-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         {stages.map((stage, idx) => {
           const selected = idx === current
@@ -161,7 +162,7 @@ export function MobileKanban({ opportunities, pipeline, onSelectOpportunity }: M
               key={stage.id}
               role="tabpanel"
               aria-label={stage.name}
-              className="w-full shrink-0 snap-start overflow-y-auto px-3 pb-6 pt-3"
+              className="w-full shrink-0 snap-start overflow-y-auto px-3 pb-6 pt-3 sm:px-4"
             >
               <div className="mb-2.5 flex items-baseline justify-between gap-2">
                 <h3 className="flex items-center gap-1.5 text-[15px] font-semibold">
@@ -182,9 +183,9 @@ export function MobileKanban({ opportunities, pipeline, onSelectOpportunity }: M
                   No hay oportunidades en esta etapa
                 </p>
               ) : (
-                <div className="grid gap-2.5">
+                <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
                   {items.map((opp) => (
-                    <MobileOpportunityCard
+                    <StageOpportunityCard
                       key={opp.id}
                       opportunity={opp}
                       next={canMove(opp) ? next : null}
@@ -226,7 +227,7 @@ export function MobileKanban({ opportunities, pipeline, onSelectOpportunity }: M
   )
 }
 
-interface MobileOpportunityCardProps {
+interface StageOpportunityCardProps {
   opportunity: Opportunity
   /** Etapa del botón «Pasar a …»; null = sin botón (cierre o sin permiso). */
   next: PipelineStage | null
@@ -235,7 +236,7 @@ interface MobileOpportunityCardProps {
   onAdvance: (stage: PipelineStage) => void
 }
 
-function MobileOpportunityCard({ opportunity: opp, next, disabled, onOpen, onAdvance }: MobileOpportunityCardProps) {
+function StageOpportunityCard({ opportunity: opp, next, disabled, onOpen, onAdvance }: StageOpportunityCardProps) {
   const days = daysInStageLabel(opp.updated_at)
   const value = Number.isFinite(Number(opp.estimated_value)) ? Number(opp.estimated_value) : 0
   const hasReminder =
@@ -244,7 +245,7 @@ function MobileOpportunityCard({ opportunity: opp, next, disabled, onOpen, onAdv
   return (
     <article
       className={cn(
-        'grid gap-2 rounded-xl border bg-card p-3 shadow-sm',
+        'grid content-between gap-2 rounded-xl border bg-card p-3 shadow-sm',
         opp.status === 'lost' && 'opacity-60',
         opp.status === 'won' && 'border-green-500/40',
         opp.from_network && 'border-indigo-500/35',

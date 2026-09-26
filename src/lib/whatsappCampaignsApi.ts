@@ -13,11 +13,20 @@ export interface WhatsappCampaignAudienceFilters {
   whatsapp_consent?: 'confirmed'
 }
 
+/** Resultado real por destinatario (según Meta). `sent` = aceptado, sin confirmación de entrega aún. */
+export type DeliveryResult = 'pending' | 'sent' | 'delivered' | 'read' | 'failed' | 'skipped'
+
+export type DeliveryStats = Record<DeliveryResult, number> & { total: number }
+
 export interface WhatsappCampaign {
   id: string
   name: string
   whatsappTemplateId: string
   whatsappTemplateName: string
+  /** Estado de la plantilla en Meta (APPROVED, PENDING, REJECTED…); null = nunca sincronizada. */
+  whatsappTemplateMetaStatus: string | null
+  /** null en borradores. */
+  deliveryStats: DeliveryStats | null
   variableFieldMap: string[]
   audienceFilters: WhatsappCampaignAudienceFilters
   status: WhatsappCampaignStatus
@@ -44,6 +53,9 @@ export function mapWhatsappCampaign(resource: JsonApiResource): WhatsappCampaign
     name:                  String(a.name ?? ''),
     whatsappTemplateId:    String(a.whatsapp_template_id ?? ''),
     whatsappTemplateName:  String(a.whatsapp_template_name ?? ''),
+    whatsappTemplateMetaStatus:
+      a.whatsapp_template_meta_status != null ? String(a.whatsapp_template_meta_status) : null,
+    deliveryStats:         mapDeliveryStats(a.delivery_stats),
     variableFieldMap:      map.map((f) => String(f)),
     audienceFilters:       filters as WhatsappCampaignAudienceFilters,
     status:                (a.status as WhatsappCampaignStatus) ?? 'draft',
@@ -58,6 +70,21 @@ export function mapWhatsappCampaign(resource: JsonApiResource): WhatsappCampaign
     lastBatchAt:           a.last_batch_at != null ? String(a.last_batch_at) : null,
     createdAt:             String(a.created_at ?? ''),
   }
+}
+
+const DELIVERY_RESULTS: DeliveryResult[] = ['pending', 'sent', 'delivered', 'read', 'failed', 'skipped']
+
+function mapDeliveryStats(raw: unknown): DeliveryStats | null {
+  if (!raw || typeof raw !== 'object') return null
+  const r = raw as Record<string, unknown>
+  const stats = { total: Number(r.total ?? 0) } as DeliveryStats
+  for (const k of DELIVERY_RESULTS) stats[k] = Number(r[k] ?? 0)
+  return stats
+}
+
+/** ¿La plantilla se puede usar para lanzar? Desconocida (nunca sincronizada) = sí, con aviso. */
+export function isTemplateLaunchable(metaStatus: string | null | undefined): boolean {
+  return !metaStatus || metaStatus.toUpperCase() === 'APPROVED'
 }
 
 export async function fetchWhatsappCampaigns(): Promise<WhatsappCampaign[]> {
@@ -114,6 +141,50 @@ export async function resumeWhatsappCampaign(id: string): Promise<void> {
 
 export async function cancelWhatsappCampaign(id: string): Promise<void> {
   await api.post(`/whatsapp_campaigns/${id}/cancel`)
+}
+
+/** Copia la campaña como borrador editable (así se «edita» una campaña ya lanzada). */
+export async function duplicateWhatsappCampaign(id: string): Promise<WhatsappCampaign | null> {
+  const res = await api.post(`/whatsapp_campaigns/${id}/duplicate`)
+  const data = (res.data as { data?: JsonApiResource })?.data
+  return data ? mapWhatsappCampaign(data) : null
+}
+
+export interface CampaignRecipientRow {
+  id: string
+  contactId: string
+  contactName: string
+  toNumber: string | null
+  result: DeliveryResult
+  /** Error de Meta o motivo de omisión. */
+  reason: string | null
+  sentAt: string | null
+  deliveredAt: string | null
+  readAt: string | null
+}
+
+export async function fetchCampaignRecipients(
+  id: string,
+  page = 1,
+): Promise<{ rows: CampaignRecipientRow[]; hasMore: boolean }> {
+  const res = await api.get(`/whatsapp_campaigns/${id}/recipients`, { params: { page, items: 100 } })
+  const rows = jsonApiPrimaryList(res.data).map((r): CampaignRecipientRow => {
+    const a = r.attributes ?? {}
+    const str = (v: unknown) => (v != null && String(v).trim() ? String(v) : null)
+    return {
+      id:          String(r.id ?? ''),
+      contactId:   String(a.contact_id ?? ''),
+      contactName: String(a.contact_name ?? 'Sin nombre'),
+      toNumber:    str(a.to_number),
+      result:      (DELIVERY_RESULTS.includes(a.result as DeliveryResult) ? a.result : 'pending') as DeliveryResult,
+      reason:      str(a.reason),
+      sentAt:      str(a.sent_at),
+      deliveredAt: str(a.delivered_at),
+      readAt:      str(a.read_at),
+    }
+  })
+  const pagination = (res.data as { meta?: { pagination?: { page?: number; pages?: number } } })?.meta?.pagination
+  return { rows, hasMore: Boolean(pagination && Number(pagination.page) < Number(pagination.pages)) }
 }
 
 export function whatsappCampaignErrorMessage(err: unknown): string {

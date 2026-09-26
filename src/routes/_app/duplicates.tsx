@@ -63,6 +63,7 @@ import {
 import { Label } from '@/components/ui/label'
 import { AppPageShell } from '@/components/layout/AppPageShell'
 import { PageHeader } from '@/components/layout/PageHeader'
+import { statGridClass } from '@/lib/layoutClasses'
 
 const PAGE_SIZE = 25
 
@@ -313,7 +314,7 @@ function DuplicatesPage() {
         </Button>
       </PageHeader>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+      <div className={`${statGridClass} md:grid-cols-3`}>
         <Card>
           <CardContent className="pt-4">
             <div className="flex items-center gap-3">

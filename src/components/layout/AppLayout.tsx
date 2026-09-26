@@ -159,6 +159,16 @@ export function AppLayout({ children }: AppLayoutProps) {
     return () => document.removeEventListener('keydown', down)
   }, [])
 
+  // Esc cierra el menú lateral.
+  useEffect(() => {
+    if (!sidebarOpen) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setSidebarOpen(false)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [sidebarOpen])
+
   useEffect(() => {
     setSidebarOpen(false)
   }, [location.pathname])
@@ -195,14 +205,19 @@ export function AppLayout({ children }: AppLayoutProps) {
     <div className="flex h-screen overflow-hidden bg-background">
       {sidebarOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black/50 lg:hidden"
+          className="fixed inset-0 z-40 bg-black/50"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
+      {/* Menú lateral: oculto por defecto en todas las pantallas; se abre con «Menú». */}
       <aside
+        id="app-sidebar"
+        aria-label="Menú principal"
+        aria-hidden={!sidebarOpen}
+        inert={!sidebarOpen}
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex w-60 min-h-0 flex-col overflow-hidden border-r bg-sidebar transition-transform duration-200 lg:static lg:h-full lg:translate-x-0',
+          'fixed inset-y-0 left-0 z-50 flex w-60 min-h-0 flex-col overflow-hidden border-r bg-sidebar shadow-xl transition-transform duration-200',
           sidebarOpen ? 'translate-x-0' : '-translate-x-full',
         )}
       >
@@ -242,8 +257,9 @@ export function AppLayout({ children }: AppLayoutProps) {
           <Button
             variant="ghost"
             size="icon-sm"
-            className="ml-auto lg:hidden"
+            className="ml-auto"
             onClick={() => setSidebarOpen(false)}
+            aria-label="Cerrar menú"
           >
             <X className="size-4" />
           </Button>
@@ -328,11 +344,14 @@ export function AppLayout({ children }: AppLayoutProps) {
         <header className="flex h-14 items-center gap-4 border-b bg-background px-4">
           <Button
             variant="ghost"
-            size="icon"
-            className="lg:hidden"
+            className="h-9 gap-2 px-2 lg:px-3"
             onClick={() => setSidebarOpen(true)}
+            aria-label="Abrir menú"
+            aria-controls="app-sidebar"
+            aria-expanded={sidebarOpen}
           >
             <Menu className="size-5" />
+            <span className="hidden text-sm font-medium lg:inline">Menú</span>
           </Button>
 
           <button

@@ -504,7 +504,7 @@ function ContactsPage() {
             </TabsTrigger>
           </TabsList>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
             <Select
               value={searchFromUrl.consent ?? '__all__'}
               onValueChange={(v) =>
@@ -516,7 +516,7 @@ function ContactsPage() {
                 })
               }
             >
-              <SelectTrigger className="h-9 w-[190px] text-sm" aria-label="Consentimiento WhatsApp">
+              <SelectTrigger className="h-9 min-w-0 flex-1 text-sm sm:w-[190px] sm:flex-none" aria-label="Consentimiento WhatsApp">
                 <SelectValue placeholder="WhatsApp" />
               </SelectTrigger>
               <SelectContent>
@@ -535,7 +535,7 @@ function ContactsPage() {
                   navigate({ search: (prev) => ({ ...prev, owner: v === '__all__' ? undefined : v }) })
                 }
               >
-                <SelectTrigger className="h-9 w-[150px] text-sm">
+                <SelectTrigger className="h-9 min-w-0 flex-1 text-sm sm:w-[150px] sm:flex-none" aria-label="Consultor">
                   <SelectValue placeholder="Consultor" />
                 </SelectTrigger>
                 <SelectContent>
@@ -560,13 +560,13 @@ function ContactsPage() {
                 Limpiar filtro
               </Button>
             )}
-            <div className="relative">
+            <div className="relative w-full sm:w-auto">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 placeholder="Buscar (mín. 2 letras)..."
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
-                className="pl-9 w-56 sm:w-64"
+                className="w-full pl-9 sm:w-64"
               />
             </div>
           </div>
@@ -660,11 +660,11 @@ function ContactsPage() {
                           </TableHead>
                         )}
                         <TableHead>Nombre</TableHead>
-                        <TableHead>Email</TableHead>
-                        <TableHead>Telefono</TableHead>
-                        <TableHead>Empresa</TableHead>
-                        <TableHead>Cargo</TableHead>
-                        <TableHead>Origen</TableHead>
+                        <TableHead className="hidden md:table-cell">Email</TableHead>
+                        <TableHead className="hidden md:table-cell">Telefono</TableHead>
+                        <TableHead className="hidden md:table-cell">Empresa</TableHead>
+                        <TableHead className="hidden md:table-cell">Cargo</TableHead>
+                        <TableHead className="hidden md:table-cell">Origen</TableHead>
                         <TableHead>WhatsApp</TableHead>
                         <TableHead className="w-10"></TableHead>
                       </TableRow>
@@ -703,34 +703,37 @@ function ContactsPage() {
                               />
                             </TableCell>
                           )}
-                          <TableCell>
+                          <TableCell className="whitespace-normal md:whitespace-nowrap">
                             <span className="font-medium">{contact.fullName}</span>
+                            {contact.phone && (
+                              <span className="block text-xs text-muted-foreground md:hidden">{contact.phone}</span>
+                            )}
                           </TableCell>
-                          <TableCell>
+                          <TableCell className="hidden md:table-cell">
                             <div className="flex items-center gap-2 text-muted-foreground">
                               <Mail className="h-3 w-3" />
                               {contact.email}
                             </div>
                           </TableCell>
-                          <TableCell>
+                          <TableCell className="hidden md:table-cell">
                             <div className="flex items-center gap-2 text-muted-foreground">
                               <Phone className="h-3 w-3" />
                               {contact.phone}
                             </div>
                           </TableCell>
-                          <TableCell>
+                          <TableCell className="hidden md:table-cell">
                             <div className="flex items-center gap-2">
                               <Building2 className="h-3 w-3 text-muted-foreground" />
                               {getCompanyLabel(contact.company)}
                             </div>
                           </TableCell>
-                          <TableCell>
+                          <TableCell className="hidden md:table-cell">
                             <div className="flex items-center gap-2">
                               <Briefcase className="h-3 w-3 text-muted-foreground" />
                               {contact.position ?? '-'}
                             </div>
                           </TableCell>
-                          <TableCell>
+                          <TableCell className="hidden md:table-cell">
                             {contact.sourceLabel ? (
                               <Badge variant="outline" className="text-xs">
                                 {contact.sourceLabel}

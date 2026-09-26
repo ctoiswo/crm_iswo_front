@@ -168,10 +168,10 @@ export function WhatsappTemplatesPanel() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
         <div>
           <h2 className="text-lg font-medium">Plantillas de WhatsApp</h2>
-          <p className="text-sm text-muted-foreground">
+          <p className="hidden text-sm text-muted-foreground sm:block">
             Catálogo de plantillas aprobadas por Meta. Se usan para iniciar conversación con
             leads que aún no han escrito primero (fuera de la ventana de 24h, WhatsApp rechaza
             texto libre con el error 131047 y exige una plantilla pre-aprobada).

@@ -33,10 +33,11 @@ function initials(name?: string): string {
 }
 
 /**
- * Tablero de oportunidades (celular y computador): una etapa a la vez con
- * pestañas arriba (en celular también se desliza) y botón «Pasar a …» en cada
- * tarjeta para avanzar a la siguiente etapa con un toque. Las etapas de cierre
- * ganado piden confirmación. En pantallas anchas las tarjetas van en columnas.
+ * Tablero de oportunidades con botón «Pasar a …» en cada tarjeta para avanzar a
+ * la siguiente etapa con un toque (el cierre ganado pide confirmación).
+ * - Celular (< md): una etapa a la vez, pestañas arriba y deslizar para cambiar.
+ * - Computador (≥ md): una columna por etapa, lado a lado (scroll horizontal si
+ *   no caben), sin pestañas. Mismo DOM: solo cambian las clases.
  */
 export function StageBoard({ opportunities, pipeline, onSelectOpportunity }: StageBoardProps) {
   const stages = useMemo(
@@ -107,7 +108,7 @@ export function StageBoard({ opportunities, pipeline, onSelectOpportunity }: Sta
         ref={tabsRef}
         role="tablist"
         aria-label="Etapas"
-        className="flex shrink-0 gap-1.5 overflow-x-auto border-b px-3 pb-2.5 pt-1 sm:px-4 sm:pt-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="flex shrink-0 gap-1.5 overflow-x-auto border-b px-3 pb-2.5 pt-1 sm:px-4 sm:pt-3 md:hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         {stages.map((stage, idx) => {
           const selected = idx === current
@@ -148,7 +149,7 @@ export function StageBoard({ opportunities, pipeline, onSelectOpportunity }: Sta
       <div
         ref={pagerRef}
         onScroll={onPagerScroll}
-        className="flex min-h-0 flex-1 snap-x snap-mandatory overflow-x-auto overflow-y-hidden overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="flex min-h-0 flex-1 snap-x snap-mandatory overflow-x-auto overflow-y-hidden overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:snap-none md:gap-3 md:p-3 md:[scrollbar-width:thin] md:[&::-webkit-scrollbar]:block"
       >
         {stages.map((stage) => {
           const items = byStage[stage.id] ?? []
@@ -162,28 +163,28 @@ export function StageBoard({ opportunities, pipeline, onSelectOpportunity }: Sta
               key={stage.id}
               role="tabpanel"
               aria-label={stage.name}
-              className="w-full shrink-0 snap-start overflow-y-auto px-3 pb-6 pt-3 sm:px-4"
+              className="w-full shrink-0 snap-start overflow-y-auto px-3 pb-6 pt-3 sm:px-4 md:w-auto md:min-w-[230px] md:flex-1 md:overflow-x-hidden md:rounded-xl md:border md:bg-muted/40 md:px-2.5 md:pb-3 md:pt-2.5"
             >
               <div className="mb-2.5 flex items-baseline justify-between gap-2">
-                <h3 className="flex items-center gap-1.5 text-[15px] font-semibold">
+                <h3 className="flex min-w-0 items-center gap-1.5 text-[15px] font-semibold md:text-sm">
                   <span
                     className="size-2.5 rounded-full"
                     style={{ backgroundColor: stage.color || '#94A3B8' }}
                     aria-hidden
                   />
-                  {stage.name}
+                  <span className="truncate">{stage.name}</span>
                 </h3>
-                <span className="text-xs tabular-nums text-muted-foreground">
+                <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
                   {items.length} · {formatCurrency(total, items[0]?.currency ?? 'COP')}
                 </span>
               </div>
 
               {items.length === 0 ? (
-                <p className="rounded-xl border border-dashed p-10 text-center text-sm text-muted-foreground">
+                <p className="rounded-xl border border-dashed p-10 text-center text-sm text-muted-foreground md:p-6 md:text-xs">
                   No hay oportunidades en esta etapa
                 </p>
               ) : (
-                <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+                <div className="grid gap-2.5 sm:grid-cols-2 md:grid-cols-[minmax(0,1fr)] md:gap-2">
                   {items.map((opp) => (
                     <StageOpportunityCard
                       key={opp.id}
@@ -245,7 +246,7 @@ function StageOpportunityCard({ opportunity: opp, next, disabled, onOpen, onAdva
   return (
     <article
       className={cn(
-        'grid content-between gap-2 rounded-xl border bg-card p-3 shadow-sm',
+        'grid min-w-0 grid-cols-[minmax(0,1fr)] content-between gap-2 rounded-xl border bg-card p-3 shadow-sm',
         opp.status === 'lost' && 'opacity-60',
         opp.status === 'won' && 'border-green-500/40',
         opp.from_network && 'border-indigo-500/35',
@@ -254,12 +255,12 @@ function StageOpportunityCard({ opportunity: opp, next, disabled, onOpen, onAdva
       <button
         type="button"
         onClick={onOpen}
-        className="grid gap-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-md"
+        className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-md"
       >
         <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
-            <p className="flex items-center gap-1.5 text-[15px] font-semibold leading-tight">
-              <span className="truncate">{opp.contact_name || opp.title || 'Sin nombre'}</span>
+          <div className="min-w-0 flex-1">
+            <p className="flex items-center gap-1.5 text-[15px] font-semibold leading-tight md:text-sm">
+              <span className="min-w-0 truncate" title={opp.contact_name || opp.title}>{opp.contact_name || opp.title || 'Sin nombre'}</span>
               {hasReminder && <Bell className="size-3.5 shrink-0 text-amber-500" aria-label="Recordatorio próximo" />}
             </p>
             {opp.company_name && (
@@ -296,19 +297,19 @@ function StageOpportunityCard({ opportunity: opp, next, disabled, onOpen, onAdva
       {next && (
         <Button
           type="button"
-          className={cn('h-11 w-full gap-1.5 text-sm font-semibold', next.is_closed_won && 'bg-green-600 hover:bg-green-700')}
+          className={cn('h-11 w-full min-w-0 gap-1.5 text-sm font-semibold md:h-9 md:text-[13px]', next.is_closed_won && 'bg-green-600 hover:bg-green-700')}
           disabled={disabled}
           onClick={() => onAdvance(next)}
         >
           {next.is_closed_won ? (
             <>
               <CheckCircle2 className="size-4" />
-              Marcar {next.name}
+              <span className="truncate">Marcar {next.name}</span>
             </>
           ) : (
             <>
               <ArrowRight className="size-4" />
-              Pasar a {next.name}
+              <span className="truncate">Pasar a {next.name}</span>
             </>
           )}
         </Button>

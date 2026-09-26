@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, Play, Pause, Pencil, X, Users } from 'lucide-react'
+import { Plus, Play, Pause, Pencil, X, Users, Copy, BarChart3, AlertTriangle } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -24,14 +24,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
-import {
   fetchWhatsappCampaigns,
   createWhatsappCampaign,
   updateWhatsappCampaign,
@@ -40,12 +32,17 @@ import {
   pauseWhatsappCampaign,
   resumeWhatsappCampaign,
   cancelWhatsappCampaign,
+  duplicateWhatsappCampaign,
+  isTemplateLaunchable,
   whatsappCampaignErrorMessage,
+  type DeliveryResult,
   type WhatsappCampaign,
   type WhatsappCampaignAudienceFilters,
   type WhatsappCampaignStatus,
 } from '@/lib/whatsappCampaignsApi'
 import { fetchWhatsappTemplates, type WhatsappTemplate } from '@/lib/whatsappTemplatesApi'
+import { cn } from '@/lib/utils'
+import { DELIVERY_BADGE, WhatsappCampaignDetailDialog } from './WhatsappCampaignDetailDialog'
 import { fetchUsersList } from '@/lib/userApi'
 import api from '@/lib/api'
 import { jsonApiPrimaryList } from '@/lib/opportunityApi'
@@ -112,6 +109,8 @@ export function WhatsappCampaignsPanel() {
   /** Slots en modo "texto fijo" (muestran un Input en vez del valor del Select). */
   const [customSlots, setCustomSlots] = useState<boolean[]>([])
   const [filters, setFilters] = useState<WhatsappCampaignAudienceFilters>(emptyFilters)
+  /** Campaña cuyo resultado por destinatario se está viendo. */
+  const [detailCampaign, setDetailCampaign] = useState<WhatsappCampaign | null>(null)
 
   const { data: campaigns = [], isLoading } = useQuery({
     queryKey: ['whatsappCampaigns'],
@@ -216,6 +215,16 @@ export function WhatsappCampaignsPanel() {
     onError: (err) => toast.error(whatsappCampaignErrorMessage(err)),
   })
 
+  const duplicateMutation = useMutation({
+    mutationFn: (id: string) => duplicateWhatsappCampaign(id),
+    onSuccess: (copy) => {
+      invalidate()
+      toast.success('Copia creada como borrador — ajústala y lánzala cuando esté lista')
+      if (copy) openEdit(copy)
+    },
+    onError: (err) => toast.error(whatsappCampaignErrorMessage(err)),
+  })
+
   const openCreate = () => {
     setEditingId(null)
     setName('')
@@ -291,16 +300,24 @@ export function WhatsappCampaignsPanel() {
               onPause={() => pauseMutation.mutate(c.id)}
               onResume={() => resumeMutation.mutate(c.id)}
               onCancel={() => cancelMutation.mutate(c.id)}
+              onDuplicate={() => duplicateMutation.mutate(c.id)}
+              onShowDetail={() => setDetailCampaign(c)}
               busy={
                 launchMutation.isPending ||
                 pauseMutation.isPending ||
                 resumeMutation.isPending ||
-                cancelMutation.isPending
+                cancelMutation.isPending ||
+                duplicateMutation.isPending
               }
             />
           ))}
         </div>
       )}
+
+      <WhatsappCampaignDetailDialog
+        campaign={detailCampaign}
+        onOpenChange={(open) => { if (!open) setDetailCampaign(null) }}
+      />
 
       <Dialog open={dialogOpen} onOpenChange={(open) => { if (!open) closeDialog() }}>
         <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
@@ -326,10 +343,22 @@ export function WhatsappCampaignsPanel() {
                 </SelectTrigger>
                 <SelectContent>
                   {templates.map((t) => (
-                    <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                    <SelectItem key={t.id} value={t.id} disabled={!isTemplateLaunchable(t.metaStatus)}>
+                      {t.name}
+                      <span className="ml-2 text-xs text-muted-foreground">
+                        {templateStatusLabel(t.metaStatus)}
+                      </span>
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              {selectedTemplate && !selectedTemplate.metaStatus && (
+                <p className="flex items-start gap-1.5 text-xs text-amber-700 dark:text-amber-300">
+                  <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
+                  No sabemos si Meta aprobó esta plantilla. Antes de lanzar, pulsa «Sincronizar» en la pestaña
+                  Plantillas: si no está aprobada, WhatsApp rechazará todos los envíos.
+                </p>
+              )}
             </div>
 
             {selectedTemplate && selectedTemplate.variableLabels.length > 0 && (
@@ -480,6 +509,37 @@ export function WhatsappCampaignsPanel() {
   )
 }
 
+/** Estado de la plantilla en Meta, en palabras del usuario. */
+function templateStatusLabel(metaStatus: string | null): string {
+  switch ((metaStatus ?? '').toUpperCase()) {
+    case '':
+      return 'Sin sincronizar'
+    case 'APPROVED':
+      return 'Aprobada'
+    case 'PENDING':
+      return 'Pendiente en Meta'
+    case 'REJECTED':
+      return 'Rechazada'
+    case 'PAUSED':
+      return 'Pausada por Meta'
+    case 'DISABLED':
+      return 'Desactivada por Meta'
+    default:
+      return metaStatus ?? ''
+  }
+}
+
+const STAT_ORDER: DeliveryResult[] = ['pending', 'sent', 'delivered', 'read', 'failed', 'skipped']
+
+const STAT_LABELS: Record<DeliveryResult, string> = {
+  pending: 'Pendientes',
+  sent: 'Enviados (sin confirmar)',
+  delivered: 'Entregados',
+  read: 'Leídos',
+  failed: 'Fallidos',
+  skipped: 'Omitidos',
+}
+
 function CampaignRow({
   campaign,
   onEdit,
@@ -487,6 +547,8 @@ function CampaignRow({
   onPause,
   onResume,
   onCancel,
+  onDuplicate,
+  onShowDetail,
   busy,
 }: {
   campaign: WhatsappCampaign
@@ -495,30 +557,44 @@ function CampaignRow({
   onPause: () => void
   onResume: () => void
   onCancel: () => void
+  onDuplicate: () => void
+  onShowDetail: () => void
   busy: boolean
 }) {
+  const isDraft = campaign.status === 'draft'
+  const templateBlocked = !isTemplateLaunchable(campaign.whatsappTemplateMetaStatus)
+  const stats = campaign.deliveryStats
+
   return (
-    <div className="rounded-lg border bg-card p-4">
-      <div className="flex items-start justify-between gap-4">
+    <div className="space-y-3 rounded-lg border bg-card p-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <p className="font-medium">{campaign.name}</p>
             <Badge variant={STATUS_VARIANTS[campaign.status]}>{STATUS_LABELS[campaign.status]}</Badge>
           </div>
-          <p className="text-xs text-muted-foreground">Plantilla: {campaign.whatsappTemplateName}</p>
+          <p className="text-xs text-muted-foreground">
+            Plantilla: {campaign.whatsappTemplateName} · {templateStatusLabel(campaign.whatsappTemplateMetaStatus)}
+          </p>
         </div>
 
-        <div className="flex shrink-0 items-center gap-2">
-          {campaign.status === 'draft' && (
+        <div className="flex flex-wrap items-center gap-2 sm:shrink-0 sm:justify-end">
+          {isDraft && (
             <Button size="sm" variant="outline" onClick={onEdit} disabled={busy}>
               <Pencil className="mr-1.5 h-3.5 w-3.5" />
               Editar
             </Button>
           )}
-          {campaign.status === 'draft' && (
-            <Button size="sm" onClick={onLaunch} disabled={busy}>
+          {isDraft && (
+            <Button size="sm" onClick={onLaunch} disabled={busy || templateBlocked}>
               <Play className="mr-1.5 h-3.5 w-3.5" />
               Lanzar
+            </Button>
+          )}
+          {!isDraft && (
+            <Button size="sm" variant="outline" onClick={onShowDetail}>
+              <BarChart3 className="mr-1.5 h-3.5 w-3.5" />
+              Ver resultados
             </Button>
           )}
           {campaign.status === 'running' && (
@@ -539,28 +615,36 @@ function CampaignRow({
               Cancelar
             </Button>
           )}
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={onDuplicate}
+            disabled={busy}
+            title="Crear una copia en borrador para editarla y volver a lanzarla"
+          >
+            <Copy className="mr-1.5 h-3.5 w-3.5" />
+            Duplicar
+          </Button>
         </div>
       </div>
 
-      {campaign.status !== 'draft' && (
-        <Table className="mt-3">
-          <TableHeader>
-            <TableRow>
-              <TableHead className="h-7 text-xs">Total</TableHead>
-              <TableHead className="h-7 text-xs">Enviados</TableHead>
-              <TableHead className="h-7 text-xs">Fallidos</TableHead>
-              <TableHead className="h-7 text-xs">Sin opt-in</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            <TableRow>
-              <TableCell className="py-1.5 text-sm">{campaign.totalRecipients}</TableCell>
-              <TableCell className="py-1.5 text-sm">{campaign.sentCount}</TableCell>
-              <TableCell className="py-1.5 text-sm">{campaign.failedCount}</TableCell>
-              <TableCell className="py-1.5 text-sm">{campaign.skippedNoOptInCount}</TableCell>
-            </TableRow>
-          </TableBody>
-        </Table>
+      {isDraft && templateBlocked && (
+        <p className="flex items-start gap-1.5 rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive">
+          <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
+          La plantilla está «{templateStatusLabel(campaign.whatsappTemplateMetaStatus)}»: no se puede lanzar hasta
+          que Meta la apruebe. Edita el borrador para elegir otra plantilla.
+        </p>
+      )}
+
+      {!isDraft && stats && (
+        <div className="flex flex-wrap gap-1.5 text-xs">
+          <span className="rounded-md bg-muted px-2 py-1 font-medium tabular-nums">Total {stats.total}</span>
+          {STAT_ORDER.filter((k) => stats[k] > 0 || k === 'failed').map((k) => (
+            <span key={k} className={cn('rounded-md px-2 py-1 font-medium tabular-nums', DELIVERY_BADGE[k])}>
+              {STAT_LABELS[k]} {stats[k]}
+            </span>
+          ))}
+        </div>
       )}
     </div>
   )

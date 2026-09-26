@@ -125,7 +125,7 @@ export function ContactImportDialog({ open, onOpenChange }: ContactImportDialogP
             Importar contactos
           </DialogTitle>
           <DialogDescription>
-            Descarga la plantilla, complétala y súbela en Excel (.xlsx) o CSV (.csv).
+            Descarga la plantilla, llena la hoja «Contactos» y súbela en Excel (.xlsx) o CSV (.csv).
           </DialogDescription>
         </DialogHeader>
 
@@ -133,20 +133,23 @@ export function ContactImportDialog({ open, onOpenChange }: ContactImportDialogP
           <div className="space-y-3 pr-3">
             <div className="rounded-md border bg-muted/40 px-3 py-2.5 text-sm text-muted-foreground space-y-1">
               <p>
-                <span className="font-medium text-foreground">Columnas:</span>{' '}
-                <code className="rounded bg-muted px-1 text-xs">
-                  first_name, last_name, email, phone, company, position, city, country, kind, notes,
-                  stage
-                </code>
+                <span className="font-medium text-foreground">Columnas:</span> Nombres, Apellidos,
+                Celular, Email, Ciudad, País y Etapa.
               </p>
-              <p className="text-xs">
-                Primera fila = cabeceras · También en español (nombre, apellido, correo…) ·{' '}
-                <code className="text-xs">kind = company</code> para empresas
-              </p>
-              <p className="text-xs">
-                <span className="font-medium text-foreground">stage / etapa:</span> nombre de la etapa
-                del pipeline por defecto (ver hoja «Etapas» de la plantilla). Vacía = primera etapa.
-              </p>
+              <ul className="list-disc space-y-0.5 pl-4 text-xs">
+                <li>
+                  <span className="font-medium text-foreground">Celular con indicativo del país</span>
+                  , ej. <code className="text-xs">+573001234567</code> (+57 Colombia, +52 México, +51 Perú).
+                </li>
+                <li>
+                  <span className="font-medium text-foreground">País:</span> nombre (Colombia) o código
+                  (CO). Si lo dejas vacío se toma del indicativo del celular.
+                </li>
+                <li>
+                  <span className="font-medium text-foreground">Etapa</span> (opcional): ver hoja «Etapas»
+                  de la plantilla. Vacía = primera etapa.
+                </li>
+              </ul>
             </div>
 
             <div className="flex flex-col gap-3 rounded-md border px-4 py-3 sm:flex-row sm:items-center sm:justify-between">

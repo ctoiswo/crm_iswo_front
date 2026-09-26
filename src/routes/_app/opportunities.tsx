@@ -517,11 +517,11 @@ function OpportunitiesPage() {
 
         <Tabs value={view} onValueChange={handleViewChange}>
           <TabsList>
-            <TabsTrigger value="kanban" className="gap-1.5">
+            <TabsTrigger value="kanban" className="gap-1.5" aria-label="Kanban">
               <LayoutGrid className="size-4" />
               <span className="hidden sm:inline">Kanban</span>
             </TabsTrigger>
-            <TabsTrigger value="table" className="gap-1.5">
+            <TabsTrigger value="table" className="gap-1.5" aria-label="Tabla">
               <TableIcon className="size-4" />
               <span className="hidden sm:inline">Tabla</span>
             </TabsTrigger>
@@ -535,6 +535,7 @@ function OpportunitiesPage() {
           onClick={handleRefresh}
           disabled={refreshing}
           title="Actualizar leads"
+          aria-label="Actualizar"
         >
           <RefreshCw
             className={`size-3.5 ${refreshing || opportunitiesFetching ? 'animate-spin' : ''}`}
@@ -543,7 +544,7 @@ function OpportunitiesPage() {
         </Button>
 
         {canCreateOpportunity && (
-          <Button size="sm" className="gap-2 shadow-sm" onClick={() => setQuickAddOpen(true)}>
+          <Button size="sm" className="gap-2 shadow-sm" onClick={() => setQuickAddOpen(true)} aria-label="Nueva oportunidad">
             <Plus className="size-4" />
             <span className="hidden sm:inline">Nueva</span>
           </Button>
@@ -606,7 +607,7 @@ function OpportunitiesPage() {
         </div>
       )}
 
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border/50 bg-card/40 shadow-sm dark:bg-card/20">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden sm:rounded-xl sm:border sm:border-border/50 sm:bg-card/40 sm:shadow-sm sm:dark:bg-card/20">
         {isLoading ? (
           <div className="p-4">
             <div className="flex gap-4 overflow-x-auto pb-4">

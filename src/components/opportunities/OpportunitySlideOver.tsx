@@ -582,22 +582,22 @@ export function OpportunitySlideOver({
               onValueChange={setActiveTab}
               className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden pb-[max(0.5rem,env(safe-area-inset-bottom))]"
             >
-              <TabsList className="mx-4 mt-4 w-fit">
-                <TabsTrigger value="overview" className="gap-1.5">
+              <TabsList className="mx-4 mt-4 flex h-auto w-auto sm:inline-flex sm:h-9 sm:w-fit">
+                <TabsTrigger value="overview" className="min-w-0 flex-col gap-0.5 px-1 py-1.5 text-[11px] sm:flex-row sm:gap-1.5 sm:px-2 sm:py-1 sm:text-sm">
                   <FileText className="size-3.5" />
                   Resumen
                 </TabsTrigger>
-                <TabsTrigger value="activity" className="gap-1.5">
+                <TabsTrigger value="activity" className="min-w-0 flex-col gap-0.5 px-1 py-1.5 text-[11px] sm:flex-row sm:gap-1.5 sm:px-2 sm:py-1 sm:text-sm">
                   <History className="size-3.5" />
                   Actividad
                 </TabsTrigger>
                 {showRemindersTab && (
-                  <TabsTrigger value="reminders" className="gap-1.5">
+                  <TabsTrigger value="reminders" className="min-w-0 flex-col gap-0.5 px-1 py-1.5 text-[11px] sm:flex-row sm:gap-1.5 sm:px-2 sm:py-1 sm:text-sm">
                     <Bell className="size-3.5" />
                     Recordatorios
                   </TabsTrigger>
                 )}
-                <TabsTrigger value="whatsapp" className="gap-1.5">
+                <TabsTrigger value="whatsapp" className="min-w-0 flex-col gap-0.5 px-1 py-1.5 text-[11px] sm:flex-row sm:gap-1.5 sm:px-2 sm:py-1 sm:text-sm">
                   <MessageSquare className="size-3.5" />
                   WhatsApp
                 </TabsTrigger>

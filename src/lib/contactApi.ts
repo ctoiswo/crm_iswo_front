@@ -1,3 +1,4 @@
+import { mapContactOrigins, type ContactOrigin } from '@/lib/contactOrigins'
 import type { QueryClient } from '@tanstack/react-query'
 import api, { formatRailsError } from '@/lib/api'
 import { jsonApiPrimaryList, jsonApiPrimaryOne, type JsonApiResource } from '@/lib/opportunityApi'
@@ -54,6 +55,8 @@ export interface ContactSummary {
   ownerId?: string
   canEdit?: boolean
   sourceLabel?: string
+  /** Todas las vías por las que llegó (incluye contactos fusionados). */
+  origins?: ContactOrigin[]
   lastContactedAt?: string
   customFields?: Record<string, unknown>
   landingOrigins?: ContactLandingOrigin[]
@@ -141,6 +144,7 @@ export function mapContactResource(resource: JsonApiResource): ContactSummary {
           : undefined,
     canEdit: attrs.can_edit === true,
     sourceLabel: attrs.source_label?.trim() || undefined,
+    origins: mapContactOrigins((attrs as Record<string, unknown>).origins),
     lastContactedAt: attrs.last_contacted_at,
     customFields:
       attrs.custom_fields != null && typeof attrs.custom_fields === 'object'

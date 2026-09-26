@@ -63,6 +63,7 @@ function WhatsappPage() {
   const navigate = Route.useNavigate()
   const queryClient = useQueryClient()
   const role = useAuthStore((s) => s.user?.role)
+  const currentUserId = useAuthStore((s) => s.user?.id)
   const authScope = getAuthQueryScope()
   const canSeeAll = role !== 'consultant'
   const canSend = role !== 'viewer'
@@ -235,7 +236,13 @@ function WhatsappPage() {
                   messages={threadMessages ?? []}
                   isLoading={threadLoading}
                   canSend={canSend}
-                  canDelete={false}
+                  // Admin/manager o el dueño del contacto (el backend exige lo mismo).
+                  canDelete={
+                    role === 'admin' ||
+                    role === 'manager' ||
+                    (role === 'consultant' && selected.ownerUserId === String(currentUserId ?? ''))
+                  }
+                  onDeleted={() => void navigate({ search: { ...search, contact: undefined } })}
                   onBack={() => void navigate({ search: { ...search, contact: undefined } })}
                 />
               ) : (

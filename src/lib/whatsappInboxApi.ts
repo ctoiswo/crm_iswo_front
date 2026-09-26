@@ -78,9 +78,21 @@ export async function fetchConversations(filters: ConversationsFilters = {}): Pr
   return { conversations, pagination }
 }
 
-export async function fetchConversationStats(): Promise<{ unread: number }> {
-  const response = await api.get<{ data: { unread: number } }>('/whatsapp_conversations/stats')
-  return { unread: Number(response.data?.data?.unread ?? 0) }
+export type ConversationStats = {
+  unread: number
+  /** Id del mensaje entrante más reciente visible para el usuario: sube con cada mensaje nuevo. */
+  latestInboundId: number | null
+}
+
+export async function fetchConversationStats(): Promise<ConversationStats> {
+  const response = await api.get<{ data: { unread: number; latest_inbound_id?: number | null } }>(
+    '/whatsapp_conversations/stats',
+  )
+  const latest = response.data?.data?.latest_inbound_id
+  return {
+    unread: Number(response.data?.data?.unread ?? 0),
+    latestInboundId: latest == null ? null : Number(latest),
+  }
 }
 
 export async function markConversationRead(contactId: string): Promise<void> {

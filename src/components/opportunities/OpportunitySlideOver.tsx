@@ -74,6 +74,7 @@ import {
   contactEditInitialFromSummary,
 } from '@/components/contacts/ContactEditDialog'
 import { fetchContactDetail } from '@/lib/contactApi'
+import { markConversationRead } from '@/lib/whatsappInboxApi'
 import type { Opportunity, OpportunityTemperature, Pipeline, TenantFieldDefinition } from '@/types'
 
 interface OpportunitySlideOverProps {
@@ -246,6 +247,24 @@ export function OpportunitySlideOver({
       return hasPending ? 5000 : 10000
     },
   })
+
+  // «Visto»: con la pestaña WhatsApp abierta (y la página visible), marcar la
+  // conversación como leída cada vez que aparece un entrante nuevo — igual que
+  // la bandeja de /whatsapp. El backend envía la confirmación de lectura a Meta.
+  const lastInboundMarkedRef = useRef<string | null>(null)
+  useEffect(() => {
+    const contactId = opportunity?.contact_id
+    if (activeTab !== 'whatsapp' || !contactId || document.visibilityState !== 'visible') return
+    const lastInbound = [...(threadMessages ?? [])].reverse().find((m) => !m.isOutgoing)
+    if (!lastInbound || lastInbound.id === lastInboundMarkedRef.current) return
+    lastInboundMarkedRef.current = lastInbound.id
+    markConversationRead(contactId)
+      .then(() => queryClient.invalidateQueries({ queryKey: queryKeys.whatsappConversations.all }))
+      .catch(() => {
+        // No crítico: queda como no leído y se reintenta con el próximo entrante.
+        lastInboundMarkedRef.current = null
+      })
+  }, [activeTab, opportunity?.contact_id, threadMessages, queryClient])
 
   const invalidateTemperatureContext = (oppId?: string) => {
     if (oppId) {

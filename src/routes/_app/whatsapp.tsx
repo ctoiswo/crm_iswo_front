@@ -17,7 +17,6 @@ import api from '@/lib/api'
 import { jsonApiPrimaryList } from '@/lib/opportunityApi'
 import { fetchConversations, markConversationRead, type ConversationRow } from '@/lib/whatsappInboxApi'
 import {
-  playNewMessageSound,
   isSoundEnabled,
   setSoundEnabled,
   unlockAudioOnFirstInteraction,
@@ -76,13 +75,6 @@ function WhatsappPage() {
   const [searchText, setSearchText] = useState('')
   const [soundEnabled, setSoundEnabledState] = useState(() => isSoundEnabled())
 
-  // Despierta el AudioContext con la primera interacción real de la página —
-  // sin esto, el navegador bloquea el sonido cuando lo dispara un poll en
-  // background (sin gesto del usuario justo antes).
-  useEffect(() => {
-    unlockAudioOnFirstInteraction()
-  }, [])
-
   const toggleSound = () => {
     const next = !soundEnabled
     setSoundEnabled(next)
@@ -109,11 +101,10 @@ function WhatsappPage() {
       return p && p.page < p.pages ? p.page + 1 : undefined
     },
     enabled: Boolean(authScope),
-    refetchInterval: 8000,
-    // Seguir consultando con la pestaña en segundo plano: es justo cuando el
-    // sonido de mensaje nuevo sirve (React Query pausa el intervalo por defecto
-    // si la pestaña no está visible, y el sonido nunca llegaba a dispararse).
-    refetchIntervalInBackground: true,
+    // Los mensajes nuevos refrescan la lista al instante vía AppLayout (stats
+    // cada 10 s → invalidate). Este poll es solo de respaldo (p. ej. cambios de
+    // dueño o de etapa) y no corre en segundo plano.
+    refetchInterval: 60_000,
     refetchOnWindowFocus: true,
   })
 
@@ -125,18 +116,7 @@ function WhatsappPage() {
     return Array.from(byContact.values())
   }, [listPages])
 
-  // Sonido de mensaje nuevo: se dispara cuando el total de no leídos sube
-  // entre un poll y el siguiente (nunca en la carga inicial). Funciona aunque
-  // el mensaje nuevo sea de una conversación distinta a la abierta.
-  const previousUnreadRef = useRef<number | null>(null)
-  useEffect(() => {
-    if (!listPages) return
-    const totalUnread = conversations.reduce((sum, c) => sum + c.unreadCount, 0)
-    if (previousUnreadRef.current !== null && totalUnread > previousUnreadRef.current) {
-      playNewMessageSound()
-    }
-    previousUnreadRef.current = totalUnread
-  }, [listPages, conversations])
+  // El sonido de mensaje nuevo vive en AppLayout (suena en cualquier pantalla).
   const selected = useMemo(
     () => conversations.find((c) => c.contactId === search.contact) ?? null,
     [conversations, search.contact],
@@ -165,7 +145,9 @@ function WhatsappPage() {
       return mapThreadMessages(response.data)
     },
     enabled: Boolean(selected?.contactId),
-    refetchInterval: 3000,
+    // Entrantes nuevos llegan vía AppLayout (invalidate); este poll cubre los
+    // cambios de estado de lo enviado (entregado / leído) y solo con la pestaña visible.
+    refetchInterval: 5000,
   })
 
   const markReadMutation = useMutation({

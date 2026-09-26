@@ -50,3 +50,23 @@ describe('unlockAudioOnFirstInteraction', () => {
     expect(ctx.resume.mock.calls.length).toBe(callsAfterUnlock)
   })
 })
+
+describe('isNewInboundMessage (sonido global de WhatsApp)', () => {
+  it('no suena en la primera carga', async () => {
+    const { isNewInboundMessage } = await import('@/lib/notificationSound')
+    expect(isNewInboundMessage(undefined, 120)).toBe(false)
+  })
+
+  it('suena cuando sube el id del último entrante', async () => {
+    const { isNewInboundMessage } = await import('@/lib/notificationSound')
+    expect(isNewInboundMessage(120, 121)).toBe(true)
+    expect(isNewInboundMessage(null, 5)).toBe(true) // primer mensaje de la cuenta
+  })
+
+  it('no suena si no cambió, bajó (p. ej. se borró) o no hay mensajes', async () => {
+    const { isNewInboundMessage } = await import('@/lib/notificationSound')
+    expect(isNewInboundMessage(120, 120)).toBe(false)
+    expect(isNewInboundMessage(120, 90)).toBe(false)
+    expect(isNewInboundMessage(null, null)).toBe(false)
+  })
+})

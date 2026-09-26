@@ -1,6 +1,6 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { Link, useLocation, useRouter } from '@tanstack/react-router'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Menu,
   X,
@@ -25,6 +25,11 @@ import { logoutSession } from '@/lib/authSession'
 import { fetchDuplicateFlagsStats } from '@/lib/duplicateFlagsApi'
 import { fetchReminderStats } from '@/lib/reminderApi'
 import { fetchConversationStats } from '@/lib/whatsappInboxApi'
+import {
+  isNewInboundMessage,
+  playNewMessageSound,
+  unlockAudioOnFirstInteraction,
+} from '@/lib/notificationSound'
 import { tenantHasModule } from '@/lib/tenantModules'
 import { canUseReminders } from '@/lib/reminderChannels'
 import { filterMainNav, getSidebarSections, MAIN_NAV_ITEMS } from '@/lib/settingsNav'
@@ -95,14 +100,38 @@ export function AppLayout({ children }: AppLayoutProps) {
     refetchOnWindowFocus: true,
   })
 
+  // WhatsApp: consulta liviana cada 10 s en TODA la app (también con la pestaña
+  // en segundo plano). Cuando llega un mensaje entrante nuevo suena el aviso y se
+  // refresca la bandeja/los hilos abiertos — la bandeja ya no recarga la lista
+  // completa en cada poll.
+  const queryClient = useQueryClient()
   const { data: inboxStats } = useQuery({
     queryKey: queryKeys.whatsappConversations.stats(authScope),
     queryFn: fetchConversationStats,
     enabled: Boolean(authScope),
-    refetchInterval: 60_000,
-    refetchIntervalInBackground: false,
+    refetchInterval: 10_000,
+    refetchIntervalInBackground: true,
     refetchOnWindowFocus: true,
   })
+
+  useEffect(() => {
+    unlockAudioOnFirstInteraction()
+  }, [])
+
+  const lastInboundIdRef = useRef<number | null | undefined>(undefined)
+  useEffect(() => {
+    if (!inboxStats) return
+    const latest = inboxStats.latestInboundId
+    const previous = lastInboundIdRef.current
+    lastInboundIdRef.current = latest
+    if (!isNewInboundMessage(previous, latest)) return
+    playNewMessageSound()
+    void queryClient.invalidateQueries({
+      queryKey: queryKeys.whatsappConversations.all,
+      predicate: (q) => q.queryKey[1] !== 'stats',
+    })
+    void queryClient.invalidateQueries({ queryKey: queryKeys.opportunities.all, predicate: (q) => q.queryKey[1] === 'messages' })
+  }, [inboxStats, queryClient])
 
   const mainNavBase = useMemo(
     () => filterMainNav(MAIN_NAV_ITEMS, user?.role, tenant),

@@ -100,3 +100,15 @@ export function playNewMessageSound() {
     // Autoplay bloqueado u otro fallo de audio — no es crítico, se ignora.
   }
 }
+
+/**
+ * ¿Llegó un mensaje entrante nuevo entre dos consultas de stats?
+ * `previous === undefined` = primera carga (nunca suena al abrir la app).
+ */
+export function isNewInboundMessage(
+  previous: number | null | undefined,
+  latest: number | null | undefined,
+): boolean {
+  if (previous === undefined || latest == null) return false
+  return previous == null || latest > previous
+}

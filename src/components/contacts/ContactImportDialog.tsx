@@ -133,21 +133,23 @@ export function ContactImportDialog({ open, onOpenChange }: ContactImportDialogP
           <div className="space-y-3 pr-3">
             <div className="rounded-md border bg-muted/40 px-3 py-2.5 text-sm text-muted-foreground space-y-1">
               <p>
-                <span className="font-medium text-foreground">Columnas:</span> Nombres, Apellidos,
-                Celular, Email, Ciudad, País y Etapa.
+                <span className="font-medium text-foreground">Columnas:</span> Nombres, Apellidos, Cédula o
+                NIT, Celular, Correo y Origen del lead.
               </p>
               <ul className="list-disc space-y-0.5 pl-4 text-xs">
+                <li>
+                  <span className="font-medium text-foreground">Cédula</span> → persona natural;{' '}
+                  <span className="font-medium text-foreground">NIT</span> con dígito de verificación (ej.{' '}
+                  <code className="text-xs">900123456-7</code>) → empresa. En empresas, «Nombres» es la razón
+                  social.
+                </li>
                 <li>
                   <span className="font-medium text-foreground">Celular con indicativo del país</span>
                   , ej. <code className="text-xs">+573001234567</code> (+57 Colombia, +52 México, +51 Perú).
                 </li>
                 <li>
-                  <span className="font-medium text-foreground">País:</span> nombre (Colombia) o código
-                  (CO). Si lo dejas vacío se toma del indicativo del celular.
-                </li>
-                <li>
-                  <span className="font-medium text-foreground">Etapa</span> (opcional): ver hoja «Etapas»
-                  de la plantilla. Vacía = primera etapa.
+                  <span className="font-medium text-foreground">Origen del lead:</span> de dónde llegó (ver
+                  hoja «Fuentes»). Si escribes uno nuevo, se crea como fuente.
                 </li>
               </ul>
             </div>

@@ -19,6 +19,7 @@ import {
   Upload,
   MessageCircle,
   MessageCircleOff,
+  MailX,
 } from 'lucide-react'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Button } from '@/components/ui/button'
@@ -68,6 +69,8 @@ import {
   bulkDeleteContacts,
   bulkMarkWhatsappOptIn,
   bulkMarkWhatsappOptOut,
+  bulkSetEmailOptOut,
+  EMAIL_OPT_OUT_LABELS,
   contactListErrorMessage,
   deleteContact,
   fetchAllContacts,
@@ -325,6 +328,23 @@ function ContactsPage() {
     },
     onError: (err: unknown) => {
       toast.error(formatRailsError(err, 'No se pudo marcar el opt-in de WhatsApp'))
+    },
+  })
+
+  const emailOptOutMutation = useMutation({
+    mutationFn: ({ ids, optedOut }: { ids: string[]; optedOut: boolean }) => bulkSetEmailOptOut(ids, optedOut),
+    onSuccess: (result, { optedOut }) => {
+      if (optedOut) {
+        toast.success('Listo: ya no recibirá campañas de correo')
+      } else if (result.marked > 0) {
+        toast.success('Listo: vuelve a recibir campañas de correo')
+      } else {
+        toast.error('No se puede reactivar: la baja la pidió el contacto o su correo rebotó')
+      }
+      void invalidateContactsQueries(queryClient)
+    },
+    onError: (err: unknown) => {
+      toast.error(formatRailsError(err, 'No se pudo actualizar la baja de correos'))
     },
   })
 
@@ -713,6 +733,19 @@ function ContactsPage() {
                             <div className="flex items-center gap-2 text-muted-foreground">
                               <Mail className="h-3 w-3" />
                               {contact.email}
+                              {contact.emailOptedOut && (
+                                <Badge
+                                  className="gap-1 bg-amber-500/10 text-amber-700 hover:bg-amber-500/10 text-xs dark:text-amber-300"
+                                  title={
+                                    contact.emailOptOutSource
+                                      ? EMAIL_OPT_OUT_LABELS[contact.emailOptOutSource]
+                                      : 'No recibe campañas de correo'
+                                  }
+                                >
+                                  <MailX className="size-3" />
+                                  Sin correos
+                                </Badge>
+                              )}
                             </div>
                           </TableCell>
                           <TableCell className="hidden md:table-cell">
@@ -825,6 +858,26 @@ function ContactsPage() {
                                     }}
                                   >
                                     No autoriza WhatsApp
+                                  </DropdownMenuItem>
+                                )}
+                                {canManageWhatsappOptIn && contact.email && !contact.emailOptedOut && (
+                                  <DropdownMenuItem
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      emailOptOutMutation.mutate({ ids: [contact.id], optedOut: true })
+                                    }}
+                                  >
+                                    No quiere correos
+                                  </DropdownMenuItem>
+                                )}
+                                {canManageWhatsappOptIn && contact.emailOptOutSource === 'manual' && (
+                                  <DropdownMenuItem
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      emailOptOutMutation.mutate({ ids: [contact.id], optedOut: false })
+                                    }}
+                                  >
+                                    Reactivar correos
                                   </DropdownMenuItem>
                                 )}
                                 {canDeleteContacts && (

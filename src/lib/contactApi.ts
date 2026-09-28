@@ -66,6 +66,19 @@ export interface ContactSummary {
   /** El contacto dijo explícitamente que NO quiere WhatsApp ("No autorizo"). */
   whatsappOptedOut?: boolean
   whatsappOptOutAt?: string
+  /** No recibe campañas de correo: se dio de baja, rebotó, marcó spam o se marcó a mano. */
+  emailOptedOut?: boolean
+  emailOptOutSource?: EmailOptOutSource
+  emailOptOutAt?: string
+}
+
+export type EmailOptOutSource = 'unsubscribe' | 'bounce' | 'complaint' | 'manual'
+
+export const EMAIL_OPT_OUT_LABELS: Record<EmailOptOutSource, string> = {
+  unsubscribe: 'Se dio de baja desde el correo',
+  bounce: 'El correo rebotó (no existe o está lleno)',
+  complaint: 'Marcó un correo como spam',
+  manual: 'Marcado a mano: no quiere correos',
 }
 
 type ContactAttributes = {
@@ -95,6 +108,9 @@ type ContactAttributes = {
   whatsapp_opt_in_at?: string | null
   whatsapp_opted_out?: boolean
   whatsapp_opt_out_at?: string | null
+  email_opted_out?: boolean
+  email_opt_out_source?: EmailOptOutSource | null
+  email_opt_out_at?: string | null
 }
 
 export interface ContactListFilters {
@@ -165,6 +181,9 @@ export function mapContactResource(resource: JsonApiResource): ContactSummary {
     whatsappOptInAt: attrs.whatsapp_opt_in_at ?? undefined,
     whatsappOptedOut: attrs.whatsapp_opted_out === true,
     whatsappOptOutAt: attrs.whatsapp_opt_out_at ?? undefined,
+    emailOptedOut: attrs.email_opted_out === true,
+    emailOptOutSource: attrs.email_opt_out_source ?? undefined,
+    emailOptOutAt: attrs.email_opt_out_at ?? undefined,
   }
 }
 
@@ -305,6 +324,20 @@ export async function bulkMarkWhatsappOptIn(ids: string[]): Promise<{ marked: nu
 export async function bulkMarkWhatsappOptOut(ids: string[]): Promise<{ marked: number }> {
   const response = await api.post('/contacts/bulk_whatsapp_opt_out', { ids })
   return (response.data as { data: { marked: number } }).data
+}
+
+/**
+ * Baja manual de correos de campañas (`optedOut: true`) o deshacerla. Solo se
+ * deshacen las bajas manuales: el backend omite (`skipped`) las del enlace,
+ * rebotes y quejas.
+ */
+export async function bulkSetEmailOptOut(
+  ids: string[],
+  optedOut: boolean,
+): Promise<{ marked: number; skipped: number }> {
+  const response = await api.post(optedOut ? '/contacts/bulk_email_opt_out' : '/contacts/bulk_email_opt_in', { ids })
+  const data = (response.data as { data: { marked: number; skipped?: number } }).data
+  return { marked: data.marked, skipped: Number(data.skipped ?? 0) }
 }
 
 export async function assignContactOwner(contactId: string, ownerUserId: string): Promise<void> {

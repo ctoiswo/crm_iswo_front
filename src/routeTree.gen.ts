@@ -23,6 +23,7 @@ import { Route as AppOpportunitiesRouteImport } from './routes/_app/opportunitie
 import { Route as AppNetworkRouteImport } from './routes/_app/network'
 import { Route as AppLandingsRouteImport } from './routes/_app/landings'
 import { Route as AppExportsRouteImport } from './routes/_app/exports'
+import { Route as AppEmailRouteImport } from './routes/_app/email'
 import { Route as AppDuplicatesRouteImport } from './routes/_app/duplicates'
 import { Route as AppContactsRouteImport } from './routes/_app/contacts'
 import { Route as AppSettingsUsersRouteImport } from './routes/_app/settings/users'
@@ -104,6 +105,11 @@ const AppExportsRoute = AppExportsRouteImport.update({
   path: '/exports',
   getParentRoute: () => AppRoute,
 } as any)
+const AppEmailRoute = AppEmailRouteImport.update({
+  id: '/email',
+  path: '/email',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppDuplicatesRoute = AppDuplicatesRouteImport.update({
   id: '/duplicates',
   path: '/duplicates',
@@ -169,6 +175,7 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/contacts': typeof AppContactsRoute
   '/duplicates': typeof AppDuplicatesRoute
+  '/email': typeof AppEmailRoute
   '/exports': typeof AppExportsRoute
   '/landings': typeof AppLandingsRoute
   '/network': typeof AppNetworkRoute
@@ -194,6 +201,7 @@ export interface FileRoutesByTo {
   '/reset-password': typeof ResetPasswordRoute
   '/contacts': typeof AppContactsRoute
   '/duplicates': typeof AppDuplicatesRoute
+  '/email': typeof AppEmailRoute
   '/exports': typeof AppExportsRoute
   '/landings': typeof AppLandingsRoute
   '/network': typeof AppNetworkRoute
@@ -222,6 +230,7 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/_app/contacts': typeof AppContactsRoute
   '/_app/duplicates': typeof AppDuplicatesRoute
+  '/_app/email': typeof AppEmailRoute
   '/_app/exports': typeof AppExportsRoute
   '/_app/landings': typeof AppLandingsRoute
   '/_app/network': typeof AppNetworkRoute
@@ -251,6 +260,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/contacts'
     | '/duplicates'
+    | '/email'
     | '/exports'
     | '/landings'
     | '/network'
@@ -276,6 +286,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/contacts'
     | '/duplicates'
+    | '/email'
     | '/exports'
     | '/landings'
     | '/network'
@@ -303,6 +314,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/_app/contacts'
     | '/_app/duplicates'
+    | '/_app/email'
     | '/_app/exports'
     | '/_app/landings'
     | '/_app/network'
@@ -432,6 +444,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppExportsRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/email': {
+      id: '/_app/email'
+      path: '/email'
+      fullPath: '/email'
+      preLoaderRoute: typeof AppEmailRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/duplicates': {
       id: '/_app/duplicates'
       path: '/duplicates'
@@ -543,6 +562,7 @@ const AppSettingsRouteWithChildren = AppSettingsRoute._addFileChildren(
 interface AppRouteChildren {
   AppContactsRoute: typeof AppContactsRoute
   AppDuplicatesRoute: typeof AppDuplicatesRoute
+  AppEmailRoute: typeof AppEmailRoute
   AppExportsRoute: typeof AppExportsRoute
   AppLandingsRoute: typeof AppLandingsRoute
   AppNetworkRoute: typeof AppNetworkRoute
@@ -556,6 +576,7 @@ interface AppRouteChildren {
 const AppRouteChildren: AppRouteChildren = {
   AppContactsRoute: AppContactsRoute,
   AppDuplicatesRoute: AppDuplicatesRoute,
+  AppEmailRoute: AppEmailRoute,
   AppExportsRoute: AppExportsRoute,
   AppLandingsRoute: AppLandingsRoute,
   AppNetworkRoute: AppNetworkRoute,

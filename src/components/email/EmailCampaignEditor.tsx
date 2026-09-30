@@ -39,6 +39,7 @@ import {
   type EmailCampaignInput,
 } from '@/lib/emailMarketingApi'
 import { EmailDesignEditor, emailStarterHtml, type EmailDesignHandle } from './EmailDesignEditor'
+import { ContactOriginSelect } from '@/components/campaigns/ContactOriginSelect'
 
 const TEMPERATURE_OPTIONS = [
   { value: 'cold', label: 'Frío' },
@@ -342,6 +343,11 @@ export function EmailCampaignEditor({
                       <SelectItem value="company">Solo empresas</SelectItem>
                     </SelectContent>
                   </Select>
+                  <ContactOriginSelect
+                    className="h-9 text-sm sm:col-span-2"
+                    value={filters.contact_origin}
+                    onChange={(v) => setFilters((f) => ({ ...f, contact_origin: v }))}
+                  />
                 </div>
                 <div className="flex items-center gap-2 text-sm">
                   <Users className="size-4 text-muted-foreground" />

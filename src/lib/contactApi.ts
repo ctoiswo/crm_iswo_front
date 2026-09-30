@@ -340,6 +340,19 @@ export async function bulkSetEmailOptOut(
   return { marked: data.marked, skipped: Number(data.skipped ?? 0) }
 }
 
+export interface ContactOriginOption {
+  label: string
+  kind: string | null
+  count: number
+}
+
+/** Orígenes de los contactos (p. ej. «Excel: base.xlsx») con su cantidad — filtro de campañas. */
+export async function fetchContactOriginOptions(): Promise<ContactOriginOption[]> {
+  const response = await api.get('/contacts/origin_options')
+  const rows = (response.data as { data?: { label: string; kind?: string | null; count: number }[] }).data ?? []
+  return rows.map((r) => ({ label: String(r.label), kind: r.kind ?? null, count: Number(r.count ?? 0) }))
+}
+
 export async function assignContactOwner(contactId: string, ownerUserId: string): Promise<void> {
   await api.patch(`/contacts/${contactId}`, {
     contact: { owner_user_id: ownerUserId },

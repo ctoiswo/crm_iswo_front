@@ -48,6 +48,7 @@ import api from '@/lib/api'
 import { jsonApiPrimaryList } from '@/lib/opportunityApi'
 import type { Pipeline } from '@/types'
 import { queryKeys } from '@/lib/queryClient'
+import { ContactOriginSelect, countriesSummary } from '@/components/campaigns/ContactOriginSelect'
 
 const STATUS_LABELS: Record<WhatsappCampaignStatus, string> = {
   draft: 'Borrador',
@@ -464,6 +465,12 @@ export function WhatsappCampaignsPanel() {
                   </SelectContent>
                 </Select>
 
+                <ContactOriginSelect
+                  className="col-span-2 h-8 text-xs"
+                  value={filters.contact_origin}
+                  onChange={(v) => setFilters((f) => ({ ...f, contact_origin: v }))}
+                />
+
                 <Select
                   value={filters.whatsapp_consent ?? 'any'}
                   onValueChange={(v) =>
@@ -484,6 +491,11 @@ export function WhatsappCampaignsPanel() {
                 <Users className="size-3.5 text-muted-foreground" />
                 {previewLoading ? (
                   <Spinner className="size-3" />
+                ) : preview && selectedTemplate?.optInRequest ? (
+                  <span>
+                    <strong>{preview.total}</strong> contacto(s) · plantilla de solicitud de autorización: también
+                    les llega a quienes aún no autorizaron (nunca a quien dijo «No»)
+                  </span>
                 ) : preview ? (
                   <span>
                     <strong>{preview.optedIn}</strong> de {preview.total} contacto(s) con opt-in registrado
@@ -493,6 +505,20 @@ export function WhatsappCampaignsPanel() {
                   </span>
                 ) : null}
               </div>
+              {preview && Object.keys(preview.countries).length > 0 && (
+                <p
+                  className={cn(
+                    'text-xs',
+                    Object.keys(preview.countries).length > 1
+                      ? 'text-amber-700 dark:text-amber-300'
+                      : 'text-muted-foreground',
+                  )}
+                >
+                  Países de los celulares: {countriesSummary(preview.countries)}
+                  {Object.keys(preview.countries).length > 1 &&
+                    ' — revisa que el indicativo de cada número sea el correcto.'}
+                </p>
+              )}
             </div>
           </div>
 

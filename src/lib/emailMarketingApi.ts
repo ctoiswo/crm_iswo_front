@@ -98,6 +98,8 @@ export interface EmailAudienceFilters {
   temperature?: string
   lead_source_id?: string
   kind?: 'person' | 'company'
+  /** Solo contactos que llegaron por este origen (p. ej. «Excel: base.xlsx»). */
+  contact_origin?: string
 }
 
 export type EmailResult =

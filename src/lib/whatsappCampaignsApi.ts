@@ -11,6 +11,8 @@ export interface WhatsappCampaignAudienceFilters {
   status?: string
   /** 'confirmed' = solo quienes respondieron "Sí" por WhatsApp (no basta opt-in por import/manual). */
   whatsapp_consent?: 'confirmed'
+  /** Solo contactos que llegaron por este origen (p. ej. «Excel: base.xlsx»). */
+  contact_origin?: string
 }
 
 /** Resultado real por destinatario (según Meta). `sent` = aceptado, sin confirmación de entrega aún. */
@@ -116,6 +118,8 @@ export interface AudiencePreview {
   total: number
   optedIn: number
   skippedNoOptIn: number
+  /** País de los celulares de la audiencia según su indicativo: { EC: 120, CO: 3 }. */
+  countries: Record<string, number>
 }
 
 export async function fetchAudiencePreview(filters: WhatsappCampaignAudienceFilters): Promise<AudiencePreview> {
@@ -124,6 +128,7 @@ export async function fetchAudiencePreview(filters: WhatsappCampaignAudienceFilt
     total:          Number(res.data.total ?? 0),
     optedIn:        Number(res.data.opted_in ?? 0),
     skippedNoOptIn: Number(res.data.skipped_no_opt_in ?? 0),
+    countries: (res.data.countries ?? {}) as Record<string, number>,
   }
 }
 

@@ -35,6 +35,7 @@ import { Route as AppSettingsGeneralRouteImport } from './routes/_app/settings/g
 import { Route as AppSettingsFieldsRouteImport } from './routes/_app/settings/fields'
 import { Route as AppSettingsBantRouteImport } from './routes/_app/settings/bant'
 import { Route as AppSettingsAuditRouteImport } from './routes/_app/settings/audit'
+import { Route as AppSettingsAiAgentRouteImport } from './routes/_app/settings/ai-agent'
 
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
   id: '/reset-password',
@@ -166,6 +167,11 @@ const AppSettingsAuditRoute = AppSettingsAuditRouteImport.update({
   path: '/audit',
   getParentRoute: () => AppSettingsRoute,
 } as any)
+const AppSettingsAiAgentRoute = AppSettingsAiAgentRouteImport.update({
+  id: '/ai-agent',
+  path: '/ai-agent',
+  getParentRoute: () => AppSettingsRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/$slug': typeof SlugRoute
@@ -184,6 +190,7 @@ export interface FileRoutesByFullPath {
   '/settings': typeof AppSettingsRouteWithChildren
   '/whatsapp': typeof AppWhatsappRoute
   '/l/$slug': typeof LSlugRoute
+  '/settings/ai-agent': typeof AppSettingsAiAgentRoute
   '/settings/audit': typeof AppSettingsAuditRoute
   '/settings/bant': typeof AppSettingsBantRoute
   '/settings/fields': typeof AppSettingsFieldsRoute
@@ -211,6 +218,7 @@ export interface FileRoutesByTo {
   '/whatsapp': typeof AppWhatsappRoute
   '/l/$slug': typeof LSlugRoute
   '/': typeof AppIndexRoute
+  '/settings/ai-agent': typeof AppSettingsAiAgentRoute
   '/settings/audit': typeof AppSettingsAuditRoute
   '/settings/bant': typeof AppSettingsBantRoute
   '/settings/fields': typeof AppSettingsFieldsRoute
@@ -240,6 +248,7 @@ export interface FileRoutesById {
   '/_app/whatsapp': typeof AppWhatsappRoute
   '/l/$slug': typeof LSlugRoute
   '/_app/': typeof AppIndexRoute
+  '/_app/settings/ai-agent': typeof AppSettingsAiAgentRoute
   '/_app/settings/audit': typeof AppSettingsAuditRoute
   '/_app/settings/bant': typeof AppSettingsBantRoute
   '/_app/settings/fields': typeof AppSettingsFieldsRoute
@@ -269,6 +278,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/whatsapp'
     | '/l/$slug'
+    | '/settings/ai-agent'
     | '/settings/audit'
     | '/settings/bant'
     | '/settings/fields'
@@ -296,6 +306,7 @@ export interface FileRouteTypes {
     | '/whatsapp'
     | '/l/$slug'
     | '/'
+    | '/settings/ai-agent'
     | '/settings/audit'
     | '/settings/bant'
     | '/settings/fields'
@@ -324,6 +335,7 @@ export interface FileRouteTypes {
     | '/_app/whatsapp'
     | '/l/$slug'
     | '/_app/'
+    | '/_app/settings/ai-agent'
     | '/_app/settings/audit'
     | '/_app/settings/bant'
     | '/_app/settings/fields'
@@ -528,10 +540,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSettingsAuditRouteImport
       parentRoute: typeof AppSettingsRoute
     }
+    '/_app/settings/ai-agent': {
+      id: '/_app/settings/ai-agent'
+      path: '/ai-agent'
+      fullPath: '/settings/ai-agent'
+      preLoaderRoute: typeof AppSettingsAiAgentRouteImport
+      parentRoute: typeof AppSettingsRoute
+    }
   }
 }
 
 interface AppSettingsRouteChildren {
+  AppSettingsAiAgentRoute: typeof AppSettingsAiAgentRoute
   AppSettingsAuditRoute: typeof AppSettingsAuditRoute
   AppSettingsBantRoute: typeof AppSettingsBantRoute
   AppSettingsFieldsRoute: typeof AppSettingsFieldsRoute
@@ -544,6 +564,7 @@ interface AppSettingsRouteChildren {
 }
 
 const AppSettingsRouteChildren: AppSettingsRouteChildren = {
+  AppSettingsAiAgentRoute: AppSettingsAiAgentRoute,
   AppSettingsAuditRoute: AppSettingsAuditRoute,
   AppSettingsBantRoute: AppSettingsBantRoute,
   AppSettingsFieldsRoute: AppSettingsFieldsRoute,

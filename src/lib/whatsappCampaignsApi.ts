@@ -29,6 +29,10 @@ export interface WhatsappCampaign {
   whatsappTemplateMetaStatus: string | null
   /** null en borradores. */
   deliveryStats: DeliveryStats | null
+  /** Mensaje automático a quien responde «Sí» (texto libre, admite {{nombre}}). */
+  confirmReplyBody: string
+  /** Cuántos respondieron «Sí» y cuántos recibieron el mensaje automático. null en borradores. */
+  confirmationStats: { confirmed: number; replied: number } | null
   variableFieldMap: string[]
   audienceFilters: WhatsappCampaignAudienceFilters
   status: WhatsappCampaignStatus
@@ -58,6 +62,14 @@ export function mapWhatsappCampaign(resource: JsonApiResource): WhatsappCampaign
     whatsappTemplateMetaStatus:
       a.whatsapp_template_meta_status != null ? String(a.whatsapp_template_meta_status) : null,
     deliveryStats:         mapDeliveryStats(a.delivery_stats),
+    confirmReplyBody:      String(a.confirm_reply_body ?? ''),
+    confirmationStats:
+      a.confirmation_stats && typeof a.confirmation_stats === 'object'
+        ? {
+            confirmed: Number((a.confirmation_stats as Record<string, unknown>).confirmed ?? 0),
+            replied: Number((a.confirmation_stats as Record<string, unknown>).replied ?? 0),
+          }
+        : null,
     variableFieldMap:      map.map((f) => String(f)),
     audienceFilters:       filters as WhatsappCampaignAudienceFilters,
     status:                (a.status as WhatsappCampaignStatus) ?? 'draft',
@@ -103,6 +115,7 @@ export type WhatsappCampaignInput = {
   audience_filters: WhatsappCampaignAudienceFilters
   batch_size?: number
   batch_interval_minutes?: number
+  confirm_reply_body?: string
 }
 
 export async function createWhatsappCampaign(body: WhatsappCampaignInput): Promise<void> {

@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 import { Spinner } from '@/components/ui/spinner'
 import {
   Select,
@@ -110,6 +111,7 @@ export function WhatsappCampaignsPanel() {
   /** Slots en modo "texto fijo" (muestran un Input en vez del valor del Select). */
   const [customSlots, setCustomSlots] = useState<boolean[]>([])
   const [filters, setFilters] = useState<WhatsappCampaignAudienceFilters>(emptyFilters)
+  const [confirmReply, setConfirmReply] = useState('')
   /** Campaña cuyo resultado por destinatario se está viendo. */
   const [detailCampaign, setDetailCampaign] = useState<WhatsappCampaign | null>(null)
 
@@ -169,6 +171,7 @@ export function WhatsappCampaignsPanel() {
         whatsapp_template_id: templateId,
         variable_field_map: fieldMap,
         audience_filters: filters,
+        confirm_reply_body: confirmReply.trim(),
       }
       return editingId ? updateWhatsappCampaign(editingId, body) : createWhatsappCampaign(body)
     },
@@ -233,6 +236,7 @@ export function WhatsappCampaignsPanel() {
     setFieldMap([])
     setCustomSlots([])
     setFilters(emptyFilters)
+    setConfirmReply('')
     setDialogOpen(true)
   }
 
@@ -244,6 +248,7 @@ export function WhatsappCampaignsPanel() {
     setFieldMap(c.variableFieldMap)
     setCustomSlots(c.variableFieldMap.map((v) => v !== '' && !isField(v)))
     setFilters(c.audienceFilters ?? emptyFilters)
+    setConfirmReply(c.confirmReplyBody ?? '')
     setDialogOpen(true)
   }
 
@@ -406,6 +411,21 @@ export function WhatsappCampaignsPanel() {
                 ))}
               </div>
             )}
+
+            <div className="space-y-2">
+              <Label htmlFor="campConfirmReply">Mensaje al autorizar (opcional)</Label>
+              <Textarea
+                id="campConfirmReply"
+                value={confirmReply}
+                onChange={(e) => setConfirmReply(e.target.value)}
+                rows={3}
+                placeholder="Ej: ¡Gracias {{nombre}}! Te comparto la información de nuestra certificación ISO 9001: https://…"
+              />
+              <p className="text-xs text-muted-foreground">
+                Le llega al instante a quien responda «Sí» a esta campaña, aunque autorice días después. Si lo dejas
+                vacío y el asistente IA está activo, responde el asistente.
+              </p>
+            </div>
 
             <div className="space-y-2 rounded-lg border p-3">
               <Label>Audiencia</Label>
@@ -670,6 +690,12 @@ function CampaignRow({
               {STAT_LABELS[k]} {stats[k]}
             </span>
           ))}
+          {campaign.confirmationStats && campaign.confirmationStats.confirmed > 0 && (
+            <span className="rounded-md bg-emerald-600/15 px-2 py-1 font-medium tabular-nums text-emerald-800 dark:text-emerald-200">
+              Autorizaron {campaign.confirmationStats.confirmed}
+              {campaign.confirmReplyBody ? ` · respuesta automática ${campaign.confirmationStats.replied}` : ''}
+            </span>
+          )}
         </div>
       )}
     </div>

@@ -13,9 +13,15 @@ import { WhatsappTemplatesPanel } from '@/components/whatsapp/WhatsappTemplatesP
 import { WhatsappCampaignsPanel } from '@/components/whatsapp/WhatsappCampaignsPanel'
 import { useAuthStore } from '@/stores/auth'
 import { getAuthQueryScope, queryKeys } from '@/lib/queryClient'
-import api from '@/lib/api'
+import api, { formatRailsError } from '@/lib/api'
 import { jsonApiPrimaryList } from '@/lib/opportunityApi'
-import { fetchConversations, markConversationRead, type ConversationRow } from '@/lib/whatsappInboxApi'
+import {
+  fetchConversations,
+  markConversationRead,
+  setConversationAutomation,
+  type ConversationRow,
+} from '@/lib/whatsappInboxApi'
+import { toast } from 'sonner'
 import {
   isSoundEnabled,
   setSoundEnabled,
@@ -53,6 +59,7 @@ function mapThreadMessages(body: unknown): ThreadMessage[] {
         templateName:
           typeof a.template_name === 'string' && a.template_name.trim() ? String(a.template_name) : undefined,
         templateParams: Array.isArray(a.template_params) ? a.template_params.map((p) => String(p)) : undefined,
+        automated: a.automated === true,
       }
     })
     .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
@@ -158,6 +165,20 @@ function WhatsappPage() {
     },
   })
 
+  // Pausar / reanudar el asistente en el chat abierto (un asesor toma el control).
+  const automationMutation = useMutation({
+    mutationFn: (c: ConversationRow) => setConversationAutomation(c.contactId, !c.automationPaused),
+    onSuccess: (_data, c) => {
+      toast.success(
+        c.automationPaused
+          ? 'El asistente vuelve a responder en este chat'
+          : 'Listo: el asistente ya no responde en este chat, lo atiendes tú',
+      )
+      void queryClient.invalidateQueries({ queryKey: queryKeys.whatsappConversations.all })
+    },
+    onError: (err) => toast.error(formatRailsError(err, 'No se pudo cambiar el asistente de este chat')),
+  })
+
   // Con la pestaña oculta, un mensaje que llega a la conversación abierta no
   // se marca leído (nadie lo vio): queda como no leído hasta volver.
   const [pageVisible, setPageVisible] = useState(
@@ -244,6 +265,8 @@ function WhatsappPage() {
                   }
                   onDeleted={() => void navigate({ search: { ...search, contact: undefined } })}
                   onBack={() => void navigate({ search: { ...search, contact: undefined } })}
+                  automationPaused={selected.automationPaused}
+                  onToggleAutomation={canSend ? () => automationMutation.mutate(selected) : undefined}
                 />
               ) : (
                 <div className="hidden flex-1 flex-col items-center justify-center gap-2 text-muted-foreground lg:flex">

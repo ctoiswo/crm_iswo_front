@@ -19,6 +19,8 @@ function row(overrides: Partial<ConversationRow>): ConversationRow {
     lastMessageAt: null,
     unreadCount: 0,
     bucket: 'mine',
+    awaitingReply: false,
+    automationPaused: false,
     ...overrides,
   }
 }
@@ -27,6 +29,7 @@ const conversations = [
   row({ contactId: '1', contactName: 'Ana Leída', unreadCount: 0 }),
   row({ contactId: '2', contactName: 'Beto Pendiente', unreadCount: 3 }),
   row({ contactId: '3', contactName: 'Carla Abierta', unreadCount: 0 }),
+  row({ contactId: '4', contactName: 'Diana Autorizó', unreadCount: 0, awaitingReply: true }),
 ]
 
 function renderList(activeContactId: string | null = null) {
@@ -59,5 +62,16 @@ describe('ConversationList — no leídas', () => {
     expect(screen.getByText('Beto Pendiente')).toBeInTheDocument()
     expect(screen.getByText('Carla Abierta')).toBeInTheDocument()
     expect(screen.queryByText('Ana Leída')).not.toBeInTheDocument()
+  })
+})
+
+describe('ConversationList — autorizaron', () => {
+  it('muestra solo a quienes dijeron «Sí» y esperan respuesta, con su conteo', async () => {
+    renderList()
+    await userEvent.click(screen.getByRole('button', { name: /Autorizaron/ }))
+
+    expect(screen.getByText('Diana Autorizó')).toBeInTheDocument()
+    expect(screen.queryByText('Beto Pendiente')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Autorizaron/ })).toHaveTextContent('1')
   })
 })

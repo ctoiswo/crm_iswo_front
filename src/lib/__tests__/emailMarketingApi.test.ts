@@ -39,3 +39,11 @@ describe('emailStarterHtml', () => {
     expect(html).toContain('#123456')
   })
 })
+
+describe('countriesSummary', () => {
+  it('ordena de más a menos y traduce el país', async () => {
+    const { countriesSummary } = await import('@/components/campaigns/ContactOriginSelect')
+    expect(countriesSummary({ CO: 3, EC: 120 })).toBe('Ecuador 120 · Colombia 3')
+    expect(countriesSummary({ '??': 2 })).toBe('Número no válido 2')
+  })
+})

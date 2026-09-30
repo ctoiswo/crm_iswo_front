@@ -45,14 +45,17 @@ export function ConversationList({
    * pantallas chicas se vea el hilo de a uno por vez, no los dos apretados. */
   className?: string
 }) {
-  const [unreadOnly, setUnreadOnly] = useState(false)
+  const [filter, setFilter] = useState<'all' | 'unread' | 'awaiting'>('all')
+  const unreadOnly = filter === 'unread'
   const unreadTotal = conversations.filter((c) => c.unreadCount > 0).length
+  const awaitingTotal = conversations.filter((c) => c.awaitingReply).length
 
   const q = search.trim().toLowerCase()
   const filtered = conversations.filter((c) => {
     // La conversación abierta se mantiene visible aunque se acabe de marcar
     // como leída — si no, desaparecería del filtro "No leídos" al abrirla.
     if (unreadOnly && c.unreadCount === 0 && c.contactId !== activeContactId) return false
+    if (filter === 'awaiting' && !c.awaitingReply && c.contactId !== activeContactId) return false
     if (!q) return true
     return (
       c.contactName?.toLowerCase().includes(q) ||
@@ -83,24 +86,39 @@ export function ConversationList({
         <div className="flex gap-1.5" role="group" aria-label="Filtrar por estado de lectura">
           <Button
             size="sm"
-            variant={unreadOnly ? 'outline' : 'secondary'}
-            className="h-7 flex-1 text-xs"
-            aria-pressed={!unreadOnly}
-            onClick={() => setUnreadOnly(false)}
+            variant={filter === 'all' ? 'secondary' : 'outline'}
+            className="h-7 flex-1 px-2 text-xs"
+            aria-pressed={filter === 'all'}
+            onClick={() => setFilter('all')}
           >
             Todas
           </Button>
           <Button
             size="sm"
             variant={unreadOnly ? 'secondary' : 'outline'}
-            className="h-7 flex-1 gap-1.5 text-xs"
+            className="h-7 flex-1 gap-1.5 px-2 text-xs"
             aria-pressed={unreadOnly}
-            onClick={() => setUnreadOnly(true)}
+            onClick={() => setFilter('unread')}
           >
             No leídas
             {unreadTotal > 0 && (
               <span className="rounded-full bg-primary px-1.5 text-[10px] leading-4 text-primary-foreground">
                 {unreadTotal}
+              </span>
+            )}
+          </Button>
+          <Button
+            size="sm"
+            variant={filter === 'awaiting' ? 'secondary' : 'outline'}
+            className="h-7 flex-1 gap-1.5 px-2 text-xs"
+            aria-pressed={filter === 'awaiting'}
+            onClick={() => setFilter('awaiting')}
+            title="Dijeron «Sí» y todavía nadie del equipo les ha escrito"
+          >
+            Autorizaron
+            {awaitingTotal > 0 && (
+              <span className="rounded-full bg-emerald-600 px-1.5 text-[10px] leading-4 text-white">
+                {awaitingTotal}
               </span>
             )}
           </Button>
@@ -126,7 +144,9 @@ export function ConversationList({
             <p className="text-sm">
               {unreadOnly
                 ? 'No hay conversaciones sin leer'
-                : scope === 'unassigned'
+                : filter === 'awaiting'
+                  ? 'Nadie está esperando respuesta después de autorizar'
+                  : scope === 'unassigned'
                   ? 'No hay leads sin asignar'
                   : 'No hay conversaciones'}
             </p>

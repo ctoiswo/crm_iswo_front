@@ -17,6 +17,10 @@ export interface ConversationRow {
   lastMessageAt: string | null
   unreadCount: number
   bucket: ConversationBucket
+  /** Dijo «Sí» y ninguna persona le ha respondido todavía. */
+  awaitingReply: boolean
+  /** Un asesor pausó el asistente/automático en este chat. */
+  automationPaused: boolean
 }
 
 export type ConversationsFilters = {
@@ -55,6 +59,8 @@ export function mapConversationResource(resource: JsonApiResource): Conversation
     lastMessageStatus: typeof a.last_message_status === 'string' ? a.last_message_status : 'pending',
     lastMessageAt: a.last_message_at != null ? String(a.last_message_at) : null,
     unreadCount: Number(a.unread_count ?? 0),
+    awaitingReply: a.awaiting_reply === true,
+    automationPaused: a.automation_paused === true,
     bucket: (['mine', 'network', 'unassigned', 'other'] as const).includes(a.bucket as ConversationBucket)
       ? (a.bucket as ConversationBucket)
       : 'other',
@@ -93,6 +99,11 @@ export async function fetchConversationStats(): Promise<ConversationStats> {
     unread: Number(response.data?.data?.unread ?? 0),
     latestInboundId: latest == null ? null : Number(latest),
   }
+}
+
+/** Pausar (un asesor toma el control) o reanudar el asistente en un chat. */
+export async function setConversationAutomation(contactId: string, paused: boolean): Promise<void> {
+  await api.patch(`/whatsapp_conversations/${contactId}/automation`, { paused })
 }
 
 export async function markConversationRead(contactId: string): Promise<void> {

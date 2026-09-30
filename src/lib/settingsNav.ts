@@ -19,6 +19,7 @@ import {
   Building2,
   MessageCircle,
   Mail,
+  Bot,
 } from 'lucide-react'
 import type { Tenant, UserRole } from '@/types'
 import { isPlatformTenant } from '@/lib/platformTenant'
@@ -187,6 +188,15 @@ export const SETTINGS_NAV_ITEMS: SettingsNavItem[] = [
     title: 'Integraciones',
     description: 'Meta, Google Ads y WhatsApp Business',
     icon: Plug,
+    roles: ['admin', 'manager'],
+    commercialOnly: true,
+  },
+  {
+    href: '/settings/ai-agent',
+    label: 'Asistente IA',
+    title: 'Asistente IA de WhatsApp',
+    description: 'Responde, califica y pasa al asesor por WhatsApp',
+    icon: Bot,
     roles: ['admin', 'manager'],
     commercialOnly: true,
   },

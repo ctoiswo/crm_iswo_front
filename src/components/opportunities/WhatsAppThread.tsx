@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '@/stores/auth'
-import { Send, Phone, Video, Trash2, Check, CheckCheck, AlertCircle, MessageSquareText, FileText, Download, ArrowLeft, ChevronDown } from 'lucide-react'
+import { Send, Phone, Video, Trash2, Check, CheckCheck, AlertCircle, MessageSquareText, FileText, Download, ArrowLeft, ChevronDown, Bot, BotOff } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -50,6 +50,8 @@ export type ThreadMessage = {
    * burbuja en blanco. */
   templateName?: string
   templateParams?: string[]
+  /** Lo envió el asistente IA o una automatización (no una persona). */
+  automated?: boolean
 }
 
 type MediaKind = 'image' | 'audio' | 'video' | 'file'
@@ -116,6 +118,9 @@ interface WhatsAppThreadProps {
   onBack?: () => void
   /** Tras «Eliminar conversación» (p. ej. volver a la lista en la bandeja). */
   onDeleted?: () => void
+  /** Estado del asistente en este chat (solo bandeja). Si se pasa onToggleAutomation, muestra el botón. */
+  automationPaused?: boolean
+  onToggleAutomation?: () => void
 }
 
 export function WhatsAppThread({
@@ -129,6 +134,8 @@ export function WhatsAppThread({
   canDelete = Boolean(opportunityId),
   onBack,
   onDeleted,
+  automationPaused = false,
+  onToggleAutomation,
 }: WhatsAppThreadProps) {
   const queryClient = useQueryClient()
   const canManageIntegrations = useAuthStore((s) => s.isAdmin() || s.isManager())
@@ -371,6 +378,23 @@ export function WhatsAppThread({
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
+          {onToggleAutomation && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="gap-1.5 text-primary-foreground hover:bg-primary-foreground/15"
+              type="button"
+              onClick={onToggleAutomation}
+              title={
+                automationPaused
+                  ? 'El asistente no responde en este chat. Tócalo para que vuelva a responder.'
+                  : 'El asistente responde en este chat. Tócalo para atenderlo tú.'
+              }
+            >
+              {automationPaused ? <BotOff className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
+              <span className="hidden text-xs sm:inline">{automationPaused ? 'Asistente en pausa' : 'Asistente activo'}</span>
+            </Button>
+          )}
           <Button variant="ghost" size="icon" className="text-primary-foreground hover:bg-primary-foreground/15" type="button">
             <Video className="h-5 w-5" />
           </Button>
@@ -470,6 +494,12 @@ export function WhatsAppThread({
                       </p>
                     ) : null}
                     <div className="flex items-center justify-end gap-1 mt-1">
+                        {msg.isOutgoing && msg.automated && (
+                          <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground" title="Enviado automáticamente">
+                            <Bot className="size-3" />
+                            IA ·
+                          </span>
+                        )}
                         <span className="text-[10px] text-muted-foreground">
                           {format(new Date(msg.timestamp), 'HH:mm')}
                         </span>

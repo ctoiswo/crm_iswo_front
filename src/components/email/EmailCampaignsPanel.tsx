@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { AlertTriangle, BarChart3, CalendarClock, Copy, Pause, Pencil, Play, Plus, Trash2, X } from 'lucide-react'
+import { AlertTriangle, BarChart3, CalendarClock, Copy, Loader2, Pause, Pencil, Play, Plus, Trash2, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -12,6 +12,7 @@ import {
   emailCampaignAction,
   emailQueryKeys,
   fetchEmailCampaign,
+  isPreparingAudience,
   fetchEmailCampaigns,
   type EmailCampaign,
   type EmailCampaignStatus,
@@ -188,7 +189,10 @@ function CampaignRow({
   onShowResults: () => void
 }) {
   const isDraft = campaign.status === 'draft'
-  const stats = campaign.resultStats
+  const preparing = isPreparingAudience(campaign)
+  const stats = preparing ? null : campaign.resultStats
+  const statusLabel =
+    preparing && campaign.status === 'running' ? 'Preparando audiencia…' : STATUS_LABELS[campaign.status]
   const when =
     campaign.status === 'scheduled' && campaign.scheduledAt
       ? `Programada para el ${new Date(campaign.scheduledAt).toLocaleString('es-CO')}`
@@ -202,7 +206,7 @@ function CampaignRow({
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <p className="font-medium">{campaign.name}</p>
-            <Badge variant={STATUS_VARIANTS[campaign.status]}>{STATUS_LABELS[campaign.status]}</Badge>
+            <Badge variant={STATUS_VARIANTS[campaign.status]}>{statusLabel}</Badge>
           </div>
           <p className="truncate text-xs text-muted-foreground">
             {campaign.subject ? `Asunto: ${campaign.subject}` : 'Sin asunto'} · {when}
@@ -216,7 +220,7 @@ function CampaignRow({
               Editar y lanzar
             </Button>
           )}
-          {!isDraft && campaign.status !== 'scheduled' && (
+          {!isDraft && campaign.status !== 'scheduled' && !preparing && (
             <Button size="sm" variant="outline" onClick={onShowResults}>
               <BarChart3 className="mr-1.5 h-3.5 w-3.5" />
               Ver resultados
@@ -275,6 +279,13 @@ function CampaignRow({
         <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <CalendarClock className="size-3.5" />
           La audiencia se calcula en el momento del envío.
+        </p>
+      )}
+
+      {preparing && (
+        <p className="flex items-center gap-1.5 text-xs text-muted-foreground" role="status">
+          <Loader2 className="size-3.5 animate-spin" />
+          Preparando audiencia… Los correos empiezan a salir en cuanto esté lista.
         </p>
       )}
 

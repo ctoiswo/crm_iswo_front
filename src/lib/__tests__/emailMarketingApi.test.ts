@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { mapEmailCampaign } from '@/lib/emailMarketingApi'
+import { isPreparingAudience, mapEmailCampaign } from '@/lib/emailMarketingApi'
 import { emailStarterHtml } from '@/components/email/EmailDesignEditor'
 
 describe('mapEmailCampaign', () => {
@@ -27,6 +27,16 @@ describe('mapEmailCampaign', () => {
     expect(c?.resultStats).toBeNull()
     expect(c?.bodyHtml).toBeUndefined()
     expect(c?.scheduledAt).toBeNull()
+  })
+})
+
+describe('isPreparingAudience', () => {
+  it('lanzada sin started_at: se está preparando la audiencia', () => {
+    expect(isPreparingAudience({ status: 'running', startedAt: null })).toBe(true)
+    expect(isPreparingAudience({ status: 'paused', startedAt: null })).toBe(true)
+    expect(isPreparingAudience({ status: 'running', startedAt: '2026-10-19T10:00:00Z' })).toBe(false)
+    expect(isPreparingAudience({ status: 'draft', startedAt: null })).toBe(false)
+    expect(isPreparingAudience({ status: 'scheduled', startedAt: null })).toBe(false)
   })
 })
 

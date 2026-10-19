@@ -40,7 +40,7 @@ export type ThreadMessage = {
   content: string
   timestamp: string
   isOutgoing: boolean
-  /** Proveedor: whatsapp_cloud | openwa */
+  /** Proveedor: whatsapp_cloud (openwa solo en mensajes históricos) */
   provider?: string
   status: 'pending' | 'queued' | 'sent' | 'delivered' | 'read' | 'failed'
   errorMessage?: string

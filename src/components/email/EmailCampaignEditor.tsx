@@ -164,7 +164,7 @@ export function EmailCampaignEditor({
       toast.success(
         c.status === 'scheduled'
           ? `Campaña programada para el ${new Date(c.scheduledAt ?? '').toLocaleString('es-CO')}`
-          : 'Campaña lanzada: los correos salen en el próximo minuto',
+          : 'Campaña lanzada: se prepara la audiencia y los correos empiezan a salir en unos minutos',
       )
       void queryClient.invalidateQueries({ queryKey: emailQueryKeys.campaigns() })
       setConfirmLaunch(false)

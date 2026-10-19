@@ -160,6 +160,15 @@ function mapStats(raw: unknown): EmailResultStats | null {
   return stats
 }
 
+/**
+ * Lanzada pero sin audiencia todavía: el API la congela en segundo plano
+ * (EmailCampaignStartJob) y fija `started_at` al terminar; hasta entonces no
+ * sale ningún correo.
+ */
+export function isPreparingAudience(c: Pick<EmailCampaign, 'status' | 'startedAt'>): boolean {
+  return (c.status === 'running' || c.status === 'paused') && !c.startedAt
+}
+
 export function mapEmailCampaign(resource: JsonApiResource): EmailCampaign | null {
   if (!resource.id) return null
   const a = resource.attributes ?? {}

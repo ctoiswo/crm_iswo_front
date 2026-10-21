@@ -112,6 +112,7 @@ function ConfigForm({ config, canEdit }: { config: AiAgentConfig; canEdit: boole
     business_info: c.businessInfo,
     faq: c.faq,
     tone: c.tone,
+    sales_process: c.salesProcess,
     qualification: c.qualification,
     handoff_rules: c.handoffRules,
   })
@@ -249,6 +250,17 @@ function ConfigForm({ config, canEdit }: { config: AiAgentConfig; canEdit: boole
         </Field>
         <Field label="Tono de las respuestas">
           <Textarea value={form.tone} onChange={(e) => set('tone', e.target.value)} rows={2} disabled={!canEdit} />
+        </Field>
+        <Field
+          label="Proceso comercial"
+          hint="Cómo lleva al cliente hasta comprar y recomendar: el siguiente paso que propone en cada etapa, cómo responde objeciones y cómo atiende a quien ya es cliente."
+        >
+          <Textarea
+            value={form.sales_process}
+            onChange={(e) => set('sales_process', e.target.value)}
+            rows={9}
+            disabled={!canEdit}
+          />
         </Field>
         <Field label="Qué debe averiguar para calificar al lead">
           <Textarea

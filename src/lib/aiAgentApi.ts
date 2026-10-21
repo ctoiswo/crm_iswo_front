@@ -19,11 +19,13 @@ export interface AiAgentConfig {
   businessInfo: string
   faq: string
   tone: string
+  /** Proceso comercial: siguiente paso por etapa, objeciones y trato a clientes. */
+  salesProcess: string
   qualification: string
   handoffRules: string
   openaiConfigured: boolean
   model: string
-  defaults: { tone: string; qualification: string; handoff_rules: string }
+  defaults: { tone: string; sales_process: string; qualification: string; handoff_rules: string }
   /** Responsable de las oportunidades que abre el asistente para leads sin dueño. */
   defaultOwnerId: string | null
   defaultOwnerName: string | null
@@ -64,7 +66,7 @@ export interface AiCalendarSettings {
   location: string
 }
 
-function mapConfig(d: Record<string, unknown>): AiAgentConfig {
+export function mapConfig(d: Record<string, unknown>): AiAgentConfig {
   return {
     enabled: d.enabled === true,
     active: d.active === true,
@@ -72,11 +74,12 @@ function mapConfig(d: Record<string, unknown>): AiAgentConfig {
     businessInfo: String(d.business_info ?? ''),
     faq: String(d.faq ?? ''),
     tone: String(d.tone ?? ''),
+    salesProcess: String(d.sales_process ?? ''),
     qualification: String(d.qualification ?? ''),
     handoffRules: String(d.handoff_rules ?? ''),
     openaiConfigured: d.openai_configured === true,
     model: String(d.model ?? ''),
-    defaults: (d.defaults ?? { tone: '', qualification: '', handoff_rules: '' }) as AiAgentConfig['defaults'],
+    defaults: (d.defaults ?? { tone: '', sales_process: '', qualification: '', handoff_rules: '' }) as AiAgentConfig['defaults'],
     defaultOwnerId: d.default_owner_id != null ? String(d.default_owner_id) : null,
     defaultOwnerName: d.default_owner_name != null ? String(d.default_owner_name) : null,
     pausedChats: Number(d.paused_chats ?? 0),
@@ -101,6 +104,7 @@ export type AiAgentInput = {
   business_info: string
   faq: string
   tone: string
+  sales_process: string
   qualification: string
   handoff_rules: string
 }

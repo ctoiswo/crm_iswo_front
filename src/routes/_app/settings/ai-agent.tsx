@@ -41,6 +41,7 @@ import {
   updateAiAgentConfig,
   type AiAgentConfig,
   type AiAgentInput,
+  type AiAgentMetrics,
   type AiToolCall,
   type ChatTurn,
 } from '@/lib/aiAgentApi'
@@ -54,16 +55,15 @@ export const Route = createFileRoute('/_app/settings/ai-agent')({
 const NO_OWNER = '__auto__'
 
 const BUSINESS_PLACEHOLDER = `Ej:
-ISWO es una consultora de sistemas de gestión en Bogotá (Colombia) y Quito (Ecuador).
-Servicios: certificación ISO 9001, ISO 14001, ISO 45001 y SG-SST.
-Proceso: diagnóstico gratis → propuesta → implementación (3 a 6 meses) → auditoría.
-Precios: desde $X según el tamaño de la empresa (el asesor confirma la cotización).
+Qué vendemos: software para gestionar sistemas ISO 9001, ISO 14001, ISO 45001 y SG-SST.
+Proceso: demo sin costo → propuesta → implementación → acompañamiento.
+Precios: desde $X según el plan (el asesor confirma la cotización).
 Horario: lunes a viernes, 8:00 a. m. a 6:00 p. m.
 Web: https://iswo.com.co`
 
 const FAQ_PLACEHOLDER = `Ej:
-¿Cuánto dura la certificación? Entre 3 y 6 meses según el tamaño de la empresa.
-¿Trabajan con empresas pequeñas? Sí, desde 5 empleados.`
+¿La demo tiene costo? No, es personalizada y sin costo.
+¿Cuánto dura la implementación? Depende de los módulos; el asesor te confirma el plazo.`
 
 function AiAgentSettingsPage() {
   const canEdit = useUserRole() === 'admin'
@@ -112,8 +112,11 @@ function ConfigForm({ config, canEdit }: { config: AiAgentConfig; canEdit: boole
     business_info: c.businessInfo,
     faq: c.faq,
     tone: c.tone,
+    sales_process: c.salesProcess,
     qualification: c.qualification,
     handoff_rules: c.handoffRules,
+    privacy_notice: c.privacyNotice,
+    consent_required: c.consentRequired,
   })
   const [form, setForm] = useState<AiAgentInput>(() => toForm(config))
   const { data: users = [] } = useQuery({
@@ -250,6 +253,17 @@ function ConfigForm({ config, canEdit }: { config: AiAgentConfig; canEdit: boole
         <Field label="Tono de las respuestas">
           <Textarea value={form.tone} onChange={(e) => set('tone', e.target.value)} rows={2} disabled={!canEdit} />
         </Field>
+        <Field
+          label="Proceso comercial"
+          hint="Cómo lleva al cliente hasta comprar y recomendar: el siguiente paso que propone en cada etapa, cómo responde objeciones y cómo atiende a quien ya es cliente."
+        >
+          <Textarea
+            value={form.sales_process}
+            onChange={(e) => set('sales_process', e.target.value)}
+            rows={9}
+            disabled={!canEdit}
+          />
+        </Field>
         <Field label="Qué debe averiguar para calificar al lead">
           <Textarea
             value={form.qualification}
@@ -266,6 +280,32 @@ function ConfigForm({ config, canEdit }: { config: AiAgentConfig; canEdit: boole
             disabled={!canEdit}
           />
         </Field>
+        <div className="space-y-2 rounded-md border p-3">
+          <label className="flex items-start gap-2 text-sm font-medium">
+            <Checkbox
+              checked={form.consent_required}
+              onCheckedChange={(v) => set('consent_required', v === true)}
+              disabled={!canEdit}
+              className="mt-0.5"
+            />
+            <span>
+              Pedir autorización de datos personales (Ley 1581) antes de guardar datos, agendar o registrar referidos
+            </span>
+          </label>
+          {form.consent_required && (
+            <Field
+              label="Aviso de autorización"
+              hint="El asistente lo envía una vez, antes de pedir datos. Incluye el enlace a tu política de tratamiento de datos. La fecha y el texto aceptado quedan en el contacto y en Auditoría."
+            >
+              <Textarea
+                value={form.privacy_notice}
+                onChange={(e) => set('privacy_notice', e.target.value)}
+                rows={3}
+                disabled={!canEdit}
+              />
+            </Field>
+          )}
+        </div>
 
         {canEdit ? (
           <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
@@ -542,7 +582,8 @@ function ActivityCard() {
           </CardDescription>
         )}
       </CardHeader>
-      <CardContent>
+      <CardContent className="space-y-4">
+        {data && <PilotMetrics metrics={data.metrics} />}
         {isLoading ? (
           <Skeleton className="h-32 w-full" />
         ) : !data || data.runs.length === 0 ? (
@@ -569,5 +610,29 @@ function ActivityCard() {
         )}
       </CardContent>
     </Card>
+  )
+}
+
+/** Métricas del piloto (RFC-001 v2 §14), últimos 30 días. */
+function PilotMetrics({ metrics }: { metrics: AiAgentMetrics }) {
+  const { leads } = metrics
+  const items = [
+    { label: 'Conversaciones', value: metrics.conversations },
+    { label: 'Leads calificados', value: leads.cold + leads.warm + leads.hot, detail: `${leads.hot} calientes · ${leads.warm} tibios · ${leads.cold} fríos` },
+    { label: 'Demos agendadas', value: metrics.demos, detail: metrics.demosCompleted > 0 ? `${metrics.demosCompleted} realizadas` : undefined },
+    { label: 'Pasadas a asesor', value: metrics.handoffs },
+    { label: 'Referidos', value: metrics.referrals },
+    { label: 'Autorizaciones de datos', value: metrics.consents, detail: metrics.optOuts > 0 ? `${metrics.optOuts} bajas` : undefined },
+  ]
+  return (
+    <dl className="grid grid-cols-2 gap-2">
+      {items.map((item) => (
+        <div key={item.label} className="rounded-md border bg-muted/30 px-3 py-2">
+          <dt className="text-xs text-muted-foreground">{item.label}</dt>
+          <dd className="text-lg font-semibold tabular-nums">{item.value}</dd>
+          {item.detail && <dd className="text-[11px] text-muted-foreground">{item.detail}</dd>}
+        </div>
+      ))}
+    </dl>
   )
 }

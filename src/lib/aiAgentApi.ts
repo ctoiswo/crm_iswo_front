@@ -19,11 +19,17 @@ export interface AiAgentConfig {
   businessInfo: string
   faq: string
   tone: string
+  /** Proceso comercial: siguiente paso por etapa, objeciones y trato a clientes. */
+  salesProcess: string
   qualification: string
   handoffRules: string
+  /** Aviso de autorización de datos personales (Ley 1581) que pide antes de guardar datos. */
+  privacyNotice: string
+  /** Pedir esa autorización antes de guardar datos, agendar o registrar referidos. */
+  consentRequired: boolean
   openaiConfigured: boolean
   model: string
-  defaults: { tone: string; qualification: string; handoff_rules: string }
+  defaults: { tone: string; sales_process: string; qualification: string; handoff_rules: string; privacy_notice: string }
   /** Responsable de las oportunidades que abre el asistente para leads sin dueño. */
   defaultOwnerId: string | null
   defaultOwnerName: string | null
@@ -64,7 +70,7 @@ export interface AiCalendarSettings {
   location: string
 }
 
-function mapConfig(d: Record<string, unknown>): AiAgentConfig {
+export function mapConfig(d: Record<string, unknown>): AiAgentConfig {
   return {
     enabled: d.enabled === true,
     active: d.active === true,
@@ -72,11 +78,14 @@ function mapConfig(d: Record<string, unknown>): AiAgentConfig {
     businessInfo: String(d.business_info ?? ''),
     faq: String(d.faq ?? ''),
     tone: String(d.tone ?? ''),
+    salesProcess: String(d.sales_process ?? ''),
     qualification: String(d.qualification ?? ''),
     handoffRules: String(d.handoff_rules ?? ''),
+    privacyNotice: String(d.privacy_notice ?? ''),
+    consentRequired: d.consent_required !== false,
     openaiConfigured: d.openai_configured === true,
     model: String(d.model ?? ''),
-    defaults: (d.defaults ?? { tone: '', qualification: '', handoff_rules: '' }) as AiAgentConfig['defaults'],
+    defaults: (d.defaults ?? { tone: '', sales_process: '', qualification: '', handoff_rules: '', privacy_notice: '' }) as AiAgentConfig['defaults'],
     defaultOwnerId: d.default_owner_id != null ? String(d.default_owner_id) : null,
     defaultOwnerName: d.default_owner_name != null ? String(d.default_owner_name) : null,
     pausedChats: Number(d.paused_chats ?? 0),
@@ -101,8 +110,11 @@ export type AiAgentInput = {
   business_info: string
   faq: string
   tone: string
+  sales_process: string
   qualification: string
   handoff_rules: string
+  privacy_notice: string
+  consent_required: boolean
 }
 
 export async function updateAiAgentConfig(
@@ -146,15 +158,33 @@ export interface AiAgentRunRow {
   outputTokens: number
 }
 
+/** Métricas del piloto (últimos 30 días): solo lo que hizo el asistente. */
+export interface AiAgentMetrics {
+  /** Contactos a los que respondió. */
+  conversations: number
+  /** Oportunidades que calificó, por temperatura actual. */
+  leads: { cold: number; warm: number; hot: number }
+  demos: number
+  demosCompleted: number
+  handoffs: number
+  referrals: number
+  /** Autorizaciones de datos (Ley 1581) que registró. */
+  consents: number
+  optOuts: number
+}
+
 export interface AiAgentActivity {
   runs: AiAgentRunRow[]
   last30: { replies: number; handoffs: number; errors: number; inputTokens: number; outputTokens: number }
+  metrics: AiAgentMetrics
 }
 
 export async function fetchAiAgentActivity(): Promise<AiAgentActivity> {
   const res = await api.get('/ai_agent/activity')
   const rows = (res.data.data ?? []) as Record<string, unknown>[]
   const m = (res.data.meta?.last_30_days ?? {}) as Record<string, number>
+  const k = (res.data.meta?.metrics ?? {}) as Record<string, unknown>
+  const leads = (k.leads ?? {}) as Record<string, number>
   return {
     runs: rows.map((r) => ({
       id: String(r.id),
@@ -175,6 +205,16 @@ export async function fetchAiAgentActivity(): Promise<AiAgentActivity> {
       inputTokens: Number(m.input_tokens ?? 0),
       outputTokens: Number(m.output_tokens ?? 0),
     },
+    metrics: {
+      conversations: Number(k.conversations ?? 0),
+      leads: { cold: Number(leads.cold ?? 0), warm: Number(leads.warm ?? 0), hot: Number(leads.hot ?? 0) },
+      demos: Number(k.demos ?? 0),
+      demosCompleted: Number(k.demos_completed ?? 0),
+      handoffs: Number(k.handoffs ?? 0),
+      referrals: Number(k.referrals ?? 0),
+      consents: Number(k.consents ?? 0),
+      optOuts: Number(k.opt_outs ?? 0),
+    },
   }
 }
 
@@ -187,6 +227,9 @@ export const TOOL_LABELS: Record<string, string> = {
   calificar_lead: 'Calificó el lead',
   guardar_datos_contacto: 'Guardó datos del contacto',
   pasar_a_asesor: 'Pasó a un asesor',
+  no_contactar: 'Registró la baja',
+  registrar_referido: 'Registró un referido',
+  registrar_autorizacion_datos: 'Registró la autorización de datos',
   consultar_disponibilidad: 'Consultó la agenda',
   agendar_cita: 'Agendó una cita',
   reprogramar_cita: 'Reprogramó la cita',

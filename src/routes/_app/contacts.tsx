@@ -808,6 +808,14 @@ function ContactsPage() {
                             ) : (
                               <span className="text-xs text-muted-foreground">Sin opt-in</span>
                             )}
+                            {contact.dataConsentAt && (
+                              <p
+                                className="mt-1 text-[11px] text-muted-foreground"
+                                title={`Autorizó el tratamiento de sus datos (Ley 1581) el ${new Date(contact.dataConsentAt).toLocaleDateString('es-CO')}${contact.dataConsentSource === 'ai_agent' ? ' al asistente IA' : ''}`}
+                              >
+                                Autorizó datos
+                              </p>
+                            )}
                           </TableCell>
                           <TableCell>
                             <DropdownMenu>

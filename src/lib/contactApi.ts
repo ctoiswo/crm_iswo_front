@@ -70,6 +70,9 @@ export interface ContactSummary {
   emailOptedOut?: boolean
   emailOptOutSource?: EmailOptOutSource
   emailOptOutAt?: string
+  /** Autorizó el tratamiento de datos personales (Ley 1581), p. ej. al asistente IA. */
+  dataConsentAt?: string
+  dataConsentSource?: string
 }
 
 export type EmailOptOutSource = 'unsubscribe' | 'bounce' | 'complaint' | 'manual'
@@ -111,6 +114,8 @@ type ContactAttributes = {
   email_opted_out?: boolean
   email_opt_out_source?: EmailOptOutSource | null
   email_opt_out_at?: string | null
+  data_consent_at?: string | null
+  data_consent_source?: string | null
 }
 
 export interface ContactListFilters {
@@ -184,6 +189,8 @@ export function mapContactResource(resource: JsonApiResource): ContactSummary {
     emailOptedOut: attrs.email_opted_out === true,
     emailOptOutSource: attrs.email_opt_out_source ?? undefined,
     emailOptOutAt: attrs.email_opt_out_at ?? undefined,
+    dataConsentAt: attrs.data_consent_at ?? undefined,
+    dataConsentSource: attrs.data_consent_source ?? undefined,
   }
 }
 

@@ -139,8 +139,12 @@ export interface AiToolCall {
   result: string
 }
 
-export async function testAiAgent(messages: ChatTurn[]): Promise<{ reply: string; status: string; toolCalls: AiToolCall[] }> {
-  const res = await api.post('/ai_agent/test', { messages })
+/** consent: el cliente de prueba ya autorizó sus datos (Ley 1581) en esta conversación. */
+export async function testAiAgent(
+  messages: ChatTurn[],
+  consent = false,
+): Promise<{ reply: string; status: string; toolCalls: AiToolCall[] }> {
+  const res = await api.post('/ai_agent/test', { messages, consent })
   const d = res.data.data ?? {}
   return { reply: String(d.reply ?? ''), status: String(d.status ?? ''), toolCalls: (d.tool_calls ?? []) as AiToolCall[] }
 }

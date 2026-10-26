@@ -456,7 +456,8 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
 function TestChat({ disabled }: { disabled: boolean }) {
   const [turns, setTurns] = useState<(ChatTurn & { tools?: AiToolCall[] })[]>([])
   const [draft, setDraft] = useState('')
-  const endRef = useRef<HTMLDivElement>(null)
+  const chatRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   const testMutation = useMutation({
     mutationFn: ({ history, consent }: { history: ChatTurn[]; consent: boolean }) => testAiAgent(history, consent),
@@ -464,9 +465,16 @@ function TestChat({ disabled }: { disabled: boolean }) {
     onError: (err) => toast.error(formatRailsError(err, 'El asistente no pudo responder')),
   })
 
+  // Solo se desplaza la caja del chat: scrollIntoView movía también la página.
   useEffect(() => {
-    endRef.current?.scrollIntoView({ block: 'end' })
+    const chat = chatRef.current
+    if (chat) chat.scrollTop = chat.scrollHeight
   }, [turns, testMutation.isPending])
+
+  // El campo se desactiva mientras responde; al terminar, el cursor vuelve a él.
+  useEffect(() => {
+    if (!testMutation.isPending && turns.length > 0) inputRef.current?.focus({ preventScroll: true })
+  }, [testMutation.isPending, turns.length])
 
   const send = () => {
     const text = draft.trim()
@@ -499,7 +507,7 @@ function TestChat({ disabled }: { disabled: boolean }) {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
-        <div className="h-80 space-y-2 overflow-y-auto rounded-md border bg-muted/40 p-3">
+        <div ref={chatRef} className="h-80 space-y-2 overflow-y-auto rounded-md border bg-muted/40 p-3">
           {turns.length === 0 && (
             <p className="py-10 text-center text-sm text-muted-foreground">Ej: «Hola, ¿cuánto cuesta la ISO 9001?»</p>
           )}
@@ -532,10 +540,10 @@ function TestChat({ disabled }: { disabled: boolean }) {
               <span className="rounded-lg bg-primary/10 px-3 py-2 text-xs text-muted-foreground">Escribiendo…</span>
             </div>
           )}
-          <div ref={endRef} />
         </div>
         <div className="flex gap-2">
           <Input
+            ref={inputRef}
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={(e) => {

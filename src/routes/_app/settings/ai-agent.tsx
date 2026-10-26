@@ -459,7 +459,7 @@ function TestChat({ disabled }: { disabled: boolean }) {
   const endRef = useRef<HTMLDivElement>(null)
 
   const testMutation = useMutation({
-    mutationFn: (history: ChatTurn[]) => testAiAgent(history),
+    mutationFn: ({ history, consent }: { history: ChatTurn[]; consent: boolean }) => testAiAgent(history, consent),
     onSuccess: (res) => setTurns((t) => [...t, { role: 'assistant', content: res.reply, tools: res.toolCalls }]),
     onError: (err) => toast.error(formatRailsError(err, 'El asistente no pudo responder')),
   })
@@ -474,7 +474,11 @@ function TestChat({ disabled }: { disabled: boolean }) {
     const next = [...turns, { role: 'user' as const, content: text }]
     setTurns(next)
     setDraft('')
-    testMutation.mutate(next.map(({ role, content }) => ({ role, content })))
+    // Como en WhatsApp: una vez autorizados los datos, no se vuelve a pedir.
+    const consent = turns.some((t) =>
+      t.tools?.some((tool) => tool.name === 'registrar_autorizacion_datos' && tool.arguments.acepta === true),
+    )
+    testMutation.mutate({ history: next.map(({ role, content }) => ({ role, content })), consent })
   }
 
   return (

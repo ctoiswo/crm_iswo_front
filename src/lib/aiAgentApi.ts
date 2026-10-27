@@ -137,6 +137,8 @@ export interface AiToolCall {
   name: string
   arguments: Record<string, unknown>
   result: string
+  /** No se ejecutó: faltaba la autorización de datos (Ley 1581). */
+  blocked?: boolean
 }
 
 /** consent: el cliente de prueba ya autorizó sus datos (Ley 1581) en esta conversación. */
@@ -238,6 +240,12 @@ export const TOOL_LABELS: Record<string, string> = {
   agendar_cita: 'Agendó una cita',
   reprogramar_cita: 'Reprogramó la cita',
   cancelar_cita: 'Canceló la cita',
+}
+
+/** Etiqueta de una acción del asistente; las bloqueadas no se muestran como hechas. */
+export function toolCallLabel(tool: AiToolCall): string {
+  const label = TOOL_LABELS[tool.name] ?? tool.name
+  return tool.blocked ? `No ejecutado: ${label.charAt(0).toLowerCase()}${label.slice(1)} (falta autorización)` : label
 }
 
 export async function testCalendar(): Promise<{ label: string; startsAt: string }[]> {

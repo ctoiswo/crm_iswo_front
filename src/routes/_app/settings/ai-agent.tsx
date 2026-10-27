@@ -31,13 +31,13 @@ import { cn, formatRelativeTime } from '@/lib/utils'
 import { useUserRole } from '@/stores/auth'
 import { AgendaSettings, RemindersSettings, UpcomingAppointments } from '@/components/ai-agent/AgendaSettings'
 import {
-  TOOL_LABELS,
   aiAgentQueryKeys,
   estimateCostUsd,
   fetchAiAgentActivity,
   fetchAiAgentConfig,
   setAllChatsPaused,
   testAiAgent,
+  toolCallLabel,
   updateAiAgentConfig,
   type AiAgentConfig,
   type AiAgentInput,
@@ -523,8 +523,17 @@ function TestChat({ disabled }: { disabled: boolean }) {
                 {t.tools && t.tools.length > 0 && (
                   <div className="mt-1.5 flex flex-wrap gap-1">
                     {t.tools.map((tool, j) => (
-                      <span key={j} className="rounded bg-background/70 px-1.5 py-0.5 text-[10px] text-muted-foreground" title={tool.result}>
-                        {TOOL_LABELS[tool.name] ?? tool.name}
+                      <span
+                        key={j}
+                        className={cn(
+                          'rounded px-1.5 py-0.5 text-[10px]',
+                          tool.blocked
+                            ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300'
+                            : 'bg-background/70 text-muted-foreground',
+                        )}
+                        title={tool.result}
+                      >
+                        {toolCallLabel(tool)}
                         {tool.name === 'calificar_lead' && typeof tool.arguments.temperatura === 'string'
                           ? `: ${temperatureLabel(tool.arguments.temperatura)}`
                           : ''}
@@ -614,7 +623,7 @@ function ActivityCard() {
                 {r.error && <p className="text-xs text-destructive">{r.error}</p>}
                 <p className="text-[11px] text-muted-foreground">
                   {formatRelativeTime(r.createdAt)}
-                  {r.toolCalls.length > 0 && ` · ${r.toolCalls.map((t) => TOOL_LABELS[t.name] ?? t.name).join(', ')}`}
+                  {r.toolCalls.length > 0 && ` · ${r.toolCalls.map(toolCallLabel).join(', ')}`}
                 </p>
               </li>
             ))}

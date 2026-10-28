@@ -483,8 +483,11 @@ function TestChat({ disabled }: { disabled: boolean }) {
     setTurns(next)
     setDraft('')
     // Como en WhatsApp: una vez autorizados los datos, no se vuelve a pedir.
+    // Una autorización bloqueada (el cliente no había visto el aviso) no cuenta.
     const consent = turns.some((t) =>
-      t.tools?.some((tool) => tool.name === 'registrar_autorizacion_datos' && tool.arguments.acepta === true),
+      t.tools?.some(
+        (tool) => tool.name === 'registrar_autorizacion_datos' && tool.arguments.acepta === true && !tool.blocked,
+      ),
     )
     testMutation.mutate({ history: next.map(({ role, content }) => ({ role, content })), consent })
   }

@@ -9,6 +9,11 @@ export type NotificationKind =
   | 'new_lead'
   | 'duplicate_found'
   | 'whatsapp_message_received'
+  | 'ai_agent_handoff'
+  | 'ai_agent_hot_lead'
+  | 'ai_agent_error'
+  | 'appointment'
+  | 'other'
 
 export interface AppNotification {
   id: string
@@ -30,11 +35,15 @@ function parseKind(value: unknown): NotificationKind {
     k === 'stage_change' ||
     k === 'new_lead' ||
     k === 'duplicate_found' ||
-    k === 'whatsapp_message_received'
+    k === 'whatsapp_message_received' ||
+    k === 'ai_agent_handoff' ||
+    k === 'ai_agent_hot_lead' ||
+    k === 'ai_agent_error' ||
+    k === 'appointment'
   ) {
     return k
   }
-  return 'reminder_due'
+  return 'other'
 }
 
 export function mapNotification(resource: JsonApiResource): AppNotification | null {

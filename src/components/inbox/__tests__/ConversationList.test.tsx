@@ -21,6 +21,7 @@ function row(overrides: Partial<ConversationRow>): ConversationRow {
     bucket: 'mine',
     awaitingReply: false,
     automationPaused: false,
+    assistantExcluded: false,
     ...overrides,
   }
 }

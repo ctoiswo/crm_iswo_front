@@ -21,6 +21,8 @@ export interface ConversationRow {
   awaitingReply: boolean
   /** Un asesor pausó el asistente/automático en este chat. */
   automationPaused: boolean
+  /** Piloto activo y este número no está en la lista: el asistente no le responde. */
+  assistantExcluded: boolean
 }
 
 export type ConversationsFilters = {
@@ -63,6 +65,7 @@ export function mapConversationResource(resource: JsonApiResource): Conversation
     unreadCount: Number(a.unread_count ?? 0),
     awaitingReply: a.awaiting_reply === true,
     automationPaused: a.automation_paused === true,
+    assistantExcluded: a.assistant_excluded === true,
     bucket: (['mine', 'network', 'unassigned', 'other'] as const).includes(a.bucket as ConversationBucket)
       ? (a.bucket as ConversationBucket)
       : 'other',

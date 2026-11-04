@@ -267,6 +267,7 @@ function WhatsappPage() {
                   onBack={() => void navigate({ search: { ...search, contact: undefined } })}
                   automationPaused={selected.automationPaused}
                   assistantActive={listPages?.pages[0]?.assistantActive ?? false}
+                  assistantExcluded={selected.assistantExcluded}
                   onToggleAutomation={canSend ? () => automationMutation.mutate(selected) : undefined}
                 />
               ) : (

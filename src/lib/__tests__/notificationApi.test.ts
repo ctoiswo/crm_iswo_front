@@ -2,6 +2,32 @@ import { describe, it, expect } from 'vitest'
 import { mapNotification } from '@/lib/notificationApi'
 
 describe('mapNotification', () => {
+  it.each(['ai_agent_handoff', 'ai_agent_hot_lead', 'appointment'])('%s conserva su tipo y el contacto', (kind) => {
+    const n = mapNotification({
+      id: '5',
+      attributes: {
+        kind,
+        title: 'Aviso',
+        body: null,
+        resource_type: 'Contact',
+        resource_id: '77',
+        unread: true,
+        read_at: null,
+        created_at: '2026-11-04T12:00:00Z',
+      },
+    })
+    expect(n?.type).toBe(kind)
+    expect(n?.contactId).toBe('77')
+  })
+
+  it('un tipo desconocido no se trata como recordatorio', () => {
+    const n = mapNotification({
+      id: '6',
+      attributes: { kind: 'email_campaign_paused', title: 'Aviso', body: null, unread: true, read_at: null, created_at: '2026-11-04T12:00:00Z' },
+    })
+    expect(n?.type).toBe('other')
+  })
+
   it('extrae opportunityId cuando resource_type es Opportunity', () => {
     const n = mapNotification({
       id: '42',

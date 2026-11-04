@@ -133,7 +133,8 @@ export function NotificationDropdown() {
 
   const handleSelect = (n: AppNotification) => {
     readMutation.mutate(n.id)
-    if (n.type === 'whatsapp_message_received' && n.contactId) {
+    // Avisos ligados a un contacto (mensaje, paso a asesor, lead caliente, cita): abren su chat.
+    if (n.contactId) {
       void navigate({ to: '/whatsapp', search: { contact: n.contactId } })
       return
     }
@@ -147,6 +148,10 @@ export function NotificationDropdown() {
     }
     if (n.type === 'duplicate_found') {
       void navigate({ to: '/duplicates' })
+      return
+    }
+    if (n.type === 'ai_agent_error') {
+      void navigate({ to: '/settings/ai-agent' })
     }
   }
 

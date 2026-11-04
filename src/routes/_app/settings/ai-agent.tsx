@@ -117,6 +117,7 @@ function ConfigForm({ config, canEdit }: { config: AiAgentConfig; canEdit: boole
     handoff_rules: c.handoffRules,
     privacy_notice: c.privacyNotice,
     consent_required: c.consentRequired,
+    pilot_numbers: c.pilotNumbers,
   })
   const [form, setForm] = useState<AiAgentInput>(() => toForm(config))
   const { data: users = [] } = useQuery({
@@ -162,7 +163,11 @@ function ConfigForm({ config, canEdit }: { config: AiAgentConfig; canEdit: boole
           <div>
             <CardTitle className="flex items-center gap-2 text-base">
               Estado
-              {config.active ? (
+              {config.active && config.pilotNumbers.length > 0 ? (
+                <Badge className="border-0 bg-sky-500/15 text-sky-700 dark:text-sky-300">
+                  Piloto: {config.pilotNumbers.length} número(s)
+                </Badge>
+              ) : config.active ? (
                 <Badge className="border-0 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">Respondiendo</Badge>
               ) : config.enabled ? (
                 <Badge className="border-0 bg-amber-500/15 text-amber-700 dark:text-amber-300">Activado sin clave</Badge>
@@ -228,6 +233,18 @@ function ConfigForm({ config, canEdit }: { config: AiAgentConfig; canEdit: boole
               ))}
             </SelectContent>
           </Select>
+        </Field>
+        <Field
+          label="Números del piloto (opcional)"
+          hint="Uno por línea. Si escribes números, el asistente solo les responde a ellos y el resto de chats sigue igual. Déjalo vacío para que responda a todos. Celulares de Colombia sin indicativo quedan como +57."
+        >
+          <Textarea
+            value={form.pilot_numbers.join('\n')}
+            onChange={(e) => set('pilot_numbers', e.target.value.split('\n'))}
+            placeholder={'Ej:\n300 123 4567\n+57 310 765 4321'}
+            rows={3}
+            disabled={!canEdit}
+          />
         </Field>
         <Field
           label="Información del negocio"
@@ -333,8 +350,9 @@ function ConfigForm({ config, canEdit }: { config: AiAgentConfig; canEdit: boole
           <AlertDialogHeader>
             <AlertDialogTitle>¿Encender el asistente?</AlertDialogTitle>
             <AlertDialogDescription>
-              Desde ahora responderá automáticamente los mensajes de WhatsApp de todos los chats, salvo los que estén en
-              pausa.
+              {config.pilotNumbers.length > 0
+                ? `Modo piloto: solo responderá a ${config.pilotNumbers.join(', ')}. Los demás chats siguen igual.`
+                : 'Desde ahora responderá automáticamente los mensajes de WhatsApp de todos los chats, salvo los que estén en pausa.'}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <label className="flex items-start gap-2 text-sm">

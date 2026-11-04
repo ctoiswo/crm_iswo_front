@@ -27,6 +27,8 @@ export interface AiAgentConfig {
   privacyNotice: string
   /** Pedir esa autorización antes de guardar datos, agendar o registrar referidos. */
   consentRequired: boolean
+  /** Piloto: si hay números (E.164), solo les responde a ellos; vacío = a todos. */
+  pilotNumbers: string[]
   openaiConfigured: boolean
   model: string
   defaults: { tone: string; sales_process: string; qualification: string; handoff_rules: string; privacy_notice: string }
@@ -83,6 +85,7 @@ export function mapConfig(d: Record<string, unknown>): AiAgentConfig {
     handoffRules: String(d.handoff_rules ?? ''),
     privacyNotice: String(d.privacy_notice ?? ''),
     consentRequired: d.consent_required !== false,
+    pilotNumbers: Array.isArray(d.pilot_numbers) ? d.pilot_numbers.map(String) : [],
     openaiConfigured: d.openai_configured === true,
     model: String(d.model ?? ''),
     defaults: (d.defaults ?? { tone: '', sales_process: '', qualification: '', handoff_rules: '', privacy_notice: '' }) as AiAgentConfig['defaults'],
@@ -115,6 +118,7 @@ export type AiAgentInput = {
   handoff_rules: string
   privacy_notice: string
   consent_required: boolean
+  pilot_numbers: string[]
 }
 
 export async function updateAiAgentConfig(

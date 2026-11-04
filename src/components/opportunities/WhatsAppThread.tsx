@@ -123,6 +123,8 @@ interface WhatsAppThreadProps {
   onToggleAutomation?: () => void
   /** El asistente está encendido en general; si no, el botón dice «Asistente apagado». */
   assistantActive?: boolean
+  /** Piloto activo y este número no está en la lista: el asistente no le responde. */
+  assistantExcluded?: boolean
 }
 
 export function WhatsAppThread({
@@ -139,6 +141,7 @@ export function WhatsAppThread({
   automationPaused = false,
   onToggleAutomation,
   assistantActive = false,
+  assistantExcluded = false,
 }: WhatsAppThreadProps) {
   const queryClient = useQueryClient()
   const canManageIntegrations = useAuthStore((s) => s.isAdmin() || s.isManager())
@@ -390,7 +393,16 @@ export function WhatsAppThread({
               Asistente apagado
             </span>
           )}
-          {onToggleAutomation && assistantActive && (
+          {onToggleAutomation && assistantActive && assistantExcluded && (
+            <span
+              className="hidden items-center gap-1.5 text-xs text-primary-foreground/70 sm:flex"
+              title="El asistente solo responde a los números del piloto (Ajustes → Asistente IA). Este chat lo atiende tu equipo."
+            >
+              <BotOff className="h-4 w-4" />
+              Fuera del piloto
+            </span>
+          )}
+          {onToggleAutomation && assistantActive && !assistantExcluded && (
             <Button
               variant="ghost"
               size="sm"

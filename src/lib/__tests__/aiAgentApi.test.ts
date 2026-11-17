@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatSeconds, mapActivity, mapConfig } from '@/lib/aiAgentApi'
+import { blockedPriceSentence, formatSeconds, mapActivity, mapConfig } from '@/lib/aiAgentApi'
 
 describe('mapConfig', () => {
   it('lee el proceso comercial y su texto por defecto', () => {
@@ -44,5 +44,16 @@ describe('formatSeconds', () => {
   it('muestra segundos con una decimal', () => {
     expect(formatSeconds(9500)).toBe('9,5 s')
     expect(formatSeconds(null)).toBe('—')
+  })
+})
+
+describe('blockedPriceSentence', () => {
+  it('devuelve la frase que bloqueó el filtro de precios', () => {
+    const calls = [
+      { name: 'filtro_precios', arguments: { frase: 'Cuesta $1.500.000.', valores: ['$1.500.000'] }, result: '' },
+      { name: 'pasar_a_asesor', arguments: { tipo: 'precio_no_aprobado' }, result: '' },
+    ]
+    expect(blockedPriceSentence(calls)).toBe('Cuesta $1.500.000.')
+    expect(blockedPriceSentence([])).toBeNull()
   })
 })

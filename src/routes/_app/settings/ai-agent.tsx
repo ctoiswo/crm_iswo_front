@@ -33,6 +33,7 @@ import { useUserRole } from '@/stores/auth'
 import { AgendaSettings, RemindersSettings, UpcomingAppointments } from '@/components/ai-agent/AgendaSettings'
 import {
   aiAgentQueryKeys,
+  blockedPriceSentence,
   estimateCostUsd,
   fetchAiAgentActivity,
   fetchAiAgentConfig,
@@ -665,6 +666,11 @@ function ActivityCard() {
                 </div>
                 {r.reply && <p className="line-clamp-2 text-xs text-muted-foreground">{r.reply}</p>}
                 {r.error && <p className="text-xs text-destructive">{r.error}</p>}
+                {blockedPriceSentence(r.toolCalls) && (
+                  <p className="text-xs text-amber-700 dark:text-amber-300">
+                    No se envió (precio no aprobado): «{blockedPriceSentence(r.toolCalls)}»
+                  </p>
+                )}
                 <p className="text-[11px] text-muted-foreground">
                   {formatRelativeTime(r.createdAt)}
                   {r.latencyMs != null && ` · tardó ${formatSeconds(r.latencyMs)}`}

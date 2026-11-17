@@ -276,6 +276,13 @@ export const HANDOFF_TYPE_LABELS: Record<string, string> = {
   promesa: 'Prometió un asesor',
   multimedia: 'Audio o archivo',
   falla_ia: 'Falla del asistente',
+  precio_no_aprobado: 'Precio no aprobado',
+}
+
+/** Frase que el filtro de precios no dejó enviar, si la hubo. */
+export function blockedPriceSentence(calls: AiToolCall[]): string | null {
+  const call = calls.find((c) => c.name === 'filtro_precios')
+  return call && typeof call.arguments.frase === 'string' ? call.arguments.frase : null
 }
 
 /** 9500 → «9,5 s». */
@@ -348,6 +355,7 @@ export const TOOL_LABELS: Record<string, string> = {
   agendar_cita: 'Agendó una cita',
   reprogramar_cita: 'Reprogramó la cita',
   cancelar_cita: 'Canceló la cita',
+  filtro_precios: 'Bloqueó un precio no aprobado',
 }
 
 /** Etiqueta de una acción del asistente; las bloqueadas no se muestran como hechas. */

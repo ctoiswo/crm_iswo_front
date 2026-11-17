@@ -1,8 +1,8 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, Link } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { AlertTriangle, Bot, BotOff, History, RotateCcw, Send, Sparkles } from 'lucide-react'
+import { AlertTriangle, Bot, BotOff, ClipboardCheck, History, RotateCcw, Send, Sparkles } from 'lucide-react'
 import { requireSettingsRole } from '@/lib/authGuards'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -38,8 +38,11 @@ import {
   fetchAiAgentActivity,
   fetchAiAgentConfig,
   fetchAiAgentVersion,
+  fetchAiAgentReview,
   fetchAiAgentVersions,
   formatSeconds,
+  markAiAgentRunReviewed,
+  REVIEW_REASON_LABELS,
   HANDOFF_TYPE_LABELS,
   setAllChatsPaused,
   testAiAgent,
@@ -103,6 +106,7 @@ function AiAgentSettingsPage() {
             <PausedChatsCard config={config} canEdit={canEdit} />
             {canEdit && <TestChat disabled={!config.openaiConfigured} />}
             <ActivityCard />
+            <ReviewQueueCard />
             <VersionsCard />
           </div>
         </div>
@@ -743,6 +747,23 @@ function PilotMetrics({ metrics }: { metrics: AiAgentMetrics }) {
           ? `9 de cada 10 en ${formatSeconds(responseTime.p90Ms)} o menos · meta: menos de 10 s`
           : 'Sin datos todavía',
     },
+    {
+      label: 'Calificación de asesores',
+      value: (() => {
+        const { correct, partial, incorrect } = metrics.ratings
+        const total = correct + partial + incorrect
+        return total > 0 ? `${Math.round((correct / total) * 100)} %` : '—'
+      })(),
+      detail:
+        metrics.ratings.correct + metrics.ratings.partial + metrics.ratings.incorrect > 0
+          ? `${metrics.ratings.correct} correctas · ${metrics.ratings.partial} parciales · ${metrics.ratings.incorrect} incorrectas`
+          : 'Se califican desde la bandeja de WhatsApp',
+    },
+    {
+      label: 'Por revisar',
+      value: metrics.reviewPending,
+      detail: 'Preguntas sin respuesta y respuestas mal calificadas',
+    },
   ]
   return (
     <dl className="grid grid-cols-2 gap-2">
@@ -754,6 +775,105 @@ function PilotMetrics({ metrics }: { metrics: AiAgentMetrics }) {
         </div>
       ))}
     </dl>
+  )
+}
+
+/**
+ * Cola de revisión semanal (RFC-001 v2 del asistente §17): preguntas que el
+ * asistente no supo responder y respuestas que un asesor calificó como
+ * parciales o incorrectas. Se marcan revisadas al ampliar la información.
+ */
+function ReviewQueueCard() {
+  const queryClient = useQueryClient()
+  const [notes, setNotes] = useState<Record<string, string>>({})
+  const { data: items = [], isLoading } = useQuery({
+    queryKey: aiAgentQueryKeys.review(),
+    queryFn: fetchAiAgentReview,
+  })
+  const mutation = useMutation({
+    mutationFn: ({ id, note }: { id: string; note?: string }) => markAiAgentRunReviewed(id, note),
+    onSuccess: () => {
+      toast.success('Marcada como revisada')
+      void queryClient.invalidateQueries({ queryKey: aiAgentQueryKeys.review() })
+      void queryClient.invalidateQueries({ queryKey: aiAgentQueryKeys.activity() })
+    },
+    onError: (err) => toast.error(formatRailsError(err) || 'No se pudo marcar'),
+  })
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-base">
+          <ClipboardCheck className="size-4" />
+          Por revisar
+          {items.length > 0 && <Badge variant="secondary">{items.length}</Badge>}
+        </CardTitle>
+        <CardDescription>
+          Lo que el asistente no supo responder y lo que los asesores calificaron mal. Revísalo cada semana: agrega la
+          respuesta a la información del negocio o a las preguntas frecuentes y márcalo como revisado.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <Skeleton className="h-24 w-full" />
+        ) : items.length === 0 ? (
+          <p className="py-4 text-center text-sm text-muted-foreground">Nada pendiente.</p>
+        ) : (
+          <ul className="max-h-[28rem] divide-y overflow-y-auto text-sm">
+            {items.map((item) => (
+              <li key={item.id} className="space-y-1.5 py-3">
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                  {item.reason && (
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        'text-[10px]',
+                        item.reason === 'incorrect' && 'border-destructive/40 text-destructive'
+                      )}
+                    >
+                      {REVIEW_REASON_LABELS[item.reason]}
+                    </Badge>
+                  )}
+                  <span>{formatDate(item.createdAt, 'dd MMM, h:mm a')}</span>
+                  <span>·</span>
+                  <Link to="/whatsapp" search={{ contact: item.contactId }} className="underline-offset-2 hover:underline">
+                    {item.contactName ?? 'Contacto'}
+                  </Link>
+                </div>
+                {item.question && <p>Cliente: «{item.question}»</p>}
+                {item.reply && <p className="text-muted-foreground">Asistente: «{item.reply}»</p>}
+                {item.handoffReason && item.reason === 'sin_informacion' && (
+                  <p className="text-xs text-muted-foreground">Motivo: {item.handoffReason}</p>
+                )}
+                {item.ratingNote && (
+                  <p className="text-xs">
+                    {item.ratedByName ?? 'Asesor'}: «{item.ratingNote}»
+                  </p>
+                )}
+                <div className="flex gap-1.5 pt-1">
+                  <Input
+                    value={notes[item.id] ?? ''}
+                    onChange={(e) => setNotes((n) => ({ ...n, [item.id]: e.target.value }))}
+                    placeholder="Qué se hizo (opcional)"
+                    className="h-8 text-xs"
+                    maxLength={1000}
+                  />
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 shrink-0"
+                    disabled={mutation.isPending}
+                    onClick={() => mutation.mutate({ id: item.id, note: notes[item.id] })}
+                  >
+                    Revisada
+                  </Button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
   )
 }
 

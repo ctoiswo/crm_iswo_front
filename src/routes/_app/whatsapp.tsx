@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { mapMessageAiRun } from '@/lib/aiAgentApi'
 import { createFileRoute, useSearch } from '@tanstack/react-router'
 import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
@@ -60,6 +61,7 @@ function mapThreadMessages(body: unknown): ThreadMessage[] {
           typeof a.template_name === 'string' && a.template_name.trim() ? String(a.template_name) : undefined,
         templateParams: Array.isArray(a.template_params) ? a.template_params.map((p) => String(p)) : undefined,
         automated: a.automated === true,
+        aiRun: mapMessageAiRun(a.ai_run),
       }
     })
     .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '@/stores/auth'
-import { Send, Phone, Video, Trash2, Check, CheckCheck, AlertCircle, MessageSquareText, FileText, Download, ArrowLeft, ChevronDown, Bot, BotOff } from 'lucide-react'
+import { Send, Phone, Video, Trash2, Check, CheckCheck, AlertCircle, MessageSquareText, FileText, Download, ArrowLeft, ChevronDown, Bot, BotOff, X, Minus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -31,6 +31,7 @@ import { toast } from 'sonner'
 import api, { formatRailsError } from '@/lib/api'
 import { queryKeys } from '@/lib/queryClient'
 import { fetchWhatsappTemplates } from '@/lib/whatsappTemplatesApi'
+import { rateAiAgentRun, RATING_LABELS, type AiRunRating, type MessageAiRun } from '@/lib/aiAgentApi'
 
 /** WhatsApp cierra la ventana de servicio 24h después del último mensaje del contacto. */
 const SERVICE_WINDOW_MS = 24 * 60 * 60 * 1000
@@ -52,6 +53,110 @@ export type ThreadMessage = {
   templateParams?: string[]
   /** Lo envió el asistente IA o una automatización (no una persona). */
   automated?: boolean
+  /** Respuesta del asistente IA: se puede calificar (RFC-001 v2 §17). */
+  aiRun?: MessageAiRun
+}
+
+const RATING_STYLES: Record<AiRunRating, { icon: typeof Check; active: string }> = {
+  correct: { icon: Check, active: 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300' },
+  partial: { icon: Minus, active: 'bg-amber-500/20 text-amber-700 dark:text-amber-300' },
+  incorrect: { icon: X, active: 'bg-destructive/15 text-destructive' },
+}
+
+/**
+ * Calificación del asesor a una respuesta del asistente (RFC-001 v2 §17).
+ * Parcial o incorrecta piden una nota corta: qué debió responder. Esas
+ * respuestas van a la cola de revisión en Ajustes → Asistente IA.
+ */
+function AiRating({
+  run,
+  canRate,
+  messagesKey,
+}: {
+  run: MessageAiRun
+  canRate: boolean
+  messagesKey: readonly unknown[]
+}) {
+  const queryClient = useQueryClient()
+  const [pending, setPending] = useState<AiRunRating | null>(null)
+  const [note, setNote] = useState('')
+  const mutation = useMutation({
+    mutationFn: ({ rating, note: n }: { rating: AiRunRating | null; note?: string }) => rateAiAgentRun(run.id, rating, n),
+    onSuccess: () => {
+      setPending(null)
+      setNote('')
+      void queryClient.invalidateQueries({ queryKey: messagesKey })
+    },
+    onError: (err) => toast.error(formatRailsError(err) || 'No se pudo guardar la calificación'),
+  })
+
+  if (!canRate && !run.rating) return null
+
+  const choose = (rating: AiRunRating) => {
+    if (run.rating === rating) return mutation.mutate({ rating: null })
+    if (rating === 'correct') return mutation.mutate({ rating })
+    setPending(rating)
+    setNote(run.rating === rating ? run.ratingNote ?? '' : '')
+  }
+
+  return (
+    <div className="mt-1.5 border-t border-border/50 pt-1.5">
+      <div className="flex flex-wrap items-center justify-end gap-1">
+        <span className="mr-1 text-[10px] text-muted-foreground">
+          {run.rating ? `Calificada: ${RATING_LABELS[run.rating].toLowerCase()}` : '¿Respuesta correcta?'}
+        </span>
+        {canRate &&
+          (Object.keys(RATING_STYLES) as AiRunRating[]).map((rating) => {
+            const { icon: Icon, active } = RATING_STYLES[rating]
+            const selected = run.rating === rating || pending === rating
+            return (
+              <button
+                key={rating}
+                type="button"
+                title={selected && run.rating === rating ? 'Quitar calificación' : RATING_LABELS[rating]}
+                aria-label={RATING_LABELS[rating]}
+                aria-pressed={selected}
+                disabled={mutation.isPending}
+                onClick={() => choose(rating)}
+                className={cn(
+                  'flex size-5 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted',
+                  selected && active
+                )}
+              >
+                <Icon className="size-3" />
+              </button>
+            )
+          })}
+      </div>
+      {run.ratingNote && !pending && (
+        <p className="mt-1 text-right text-[11px] italic text-muted-foreground">«{run.ratingNote}»</p>
+      )}
+      {pending && (
+        <form
+          className="mt-1.5 flex gap-1.5"
+          onSubmit={(e) => {
+            e.preventDefault()
+            mutation.mutate({ rating: pending, note })
+          }}
+        >
+          <Input
+            autoFocus
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="¿Qué debió responder? (opcional)"
+            className="h-7 text-xs"
+            maxLength={1000}
+          />
+          <Button type="submit" size="sm" className="h-7 px-2 text-xs" disabled={mutation.isPending}>
+            Guardar
+          </Button>
+          <Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => setPending(null)}>
+            Cancelar
+          </Button>
+        </form>
+      )}
+    </div>
+  )
 }
 
 type MediaKind = 'image' | 'audio' | 'video' | 'file'
@@ -145,6 +250,8 @@ export function WhatsAppThread({
 }: WhatsAppThreadProps) {
   const queryClient = useQueryClient()
   const canManageIntegrations = useAuthStore((s) => s.isAdmin() || s.isManager())
+  // Calificar respuestas del asistente: admin, manager y consultor (el visor solo lee).
+  const canRateAi = useAuthStore((s) => s.user?.role !== 'viewer')
   const [draft, setDraft] = useState('')
   const sendUrl = opportunityId
     ? `/opportunities/${opportunityId}/whatsapp_messages`
@@ -529,6 +636,9 @@ export function WhatsAppThread({
                         </span>
                         {getStatusIcon(msg.status, msg.isOutgoing)}
                       </div>
+                      {msg.aiRun && (
+                        <AiRating run={msg.aiRun} canRate={canRateAi} messagesKey={messagesKey} />
+                      )}
                     </div>
                   </div>
                 </div>

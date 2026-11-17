@@ -290,6 +290,15 @@ function ConfigForm({ config, canEdit }: { config: AiAgentConfig; canEdit: boole
             />
           </Field>
         </div>
+        <p className="rounded-md border border-dashed px-3 py-2 text-xs text-muted-foreground">
+          Datos que recoge del cliente: nombre, correo, empresa, cargo y ciudad, más los campos de contacto y oportunidad
+          de{' '}
+          <Link to="/settings/fields" className="font-medium text-foreground underline-offset-2 hover:underline">
+            Ajustes → Campos
+          </Link>{' '}
+          (p. ej. sector, normas de interés, tamaño de la empresa). Si el cliente escribe desde un anuncio de Meta, el
+          contacto queda con ese anuncio como origen y el asistente lo usa como contexto.
+        </p>
         <Field
           label="Información del negocio"
           hint="Todo lo que el asistente puede contar: servicios, precios o rangos, proceso, horarios, ubicación, enlaces. No inventa nada que no esté aquí."

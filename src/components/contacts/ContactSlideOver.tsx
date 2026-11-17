@@ -13,6 +13,7 @@ import {
   Radio,
   Globe,
   FileText,
+  ShieldX,
 } from 'lucide-react'
 import { useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
@@ -44,6 +45,8 @@ interface ContactSlideOverProps {
   onOpenChange: (open: boolean) => void
   onEdit?: (contact: ContactSummary) => void
   onDelete?: (contact: ContactSummary) => void
+  /** Supresión de datos personales (Ley 1581); solo admin. */
+  onErasePersonalData?: (contact: ContactSummary) => void
   canEdit?: boolean
   canDelete?: boolean
 }
@@ -55,6 +58,7 @@ export function ContactSlideOver({
   onOpenChange,
   onEdit,
   onDelete,
+  onErasePersonalData,
   canEdit = true,
   canDelete = false,
 }: ContactSlideOverProps) {
@@ -157,6 +161,18 @@ export function ContactSlideOver({
                   onClick={() => onDelete?.(contact)}
                 >
                   <Trash2 className="h-4 w-4" />
+                </Button>
+              )}
+              {canDelete && onErasePersonalData && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  title="Borrar datos personales (Ley 1581)"
+                  aria-label="Borrar datos personales (Ley 1581)"
+                  className="text-destructive hover:text-destructive"
+                  onClick={() => onErasePersonalData(contact)}
+                >
+                  <ShieldX className="h-4 w-4" />
                 </Button>
               )}
             </div>

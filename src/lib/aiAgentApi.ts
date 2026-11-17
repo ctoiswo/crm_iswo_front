@@ -43,11 +43,20 @@ export interface AiAgentConfig {
   humanChats: number
   calendar: AiCalendarSettings
   reminders: AiReminderSettings
+  /** Topes de costo; 0 = sin tope. */
+  limits: AiLimits
   /** Hay calendario y cuenta de servicio de Google: el asistente puede agendar. */
   calendarActive: boolean
   googleConfigured: boolean
   /** Correo con el que se comparte el calendario de Google. */
   serviceAccountEmail: string | null
+}
+
+export interface AiLimits {
+  /** Tokens por conversación en 24 h; al llegar, el chat pasa a un asesor. */
+  conversation_tokens: number
+  /** Gasto del mes en USD; alerta al 80 % y al 100 % pasa los chats a asesores. */
+  monthly_budget_usd: number
 }
 
 export interface AiReminderSettings {
@@ -97,6 +106,10 @@ export function mapConfig(d: Record<string, unknown>): AiAgentConfig {
     humanChats: Number(d.human_chats ?? 0),
     calendar: d.calendar as AiCalendarSettings,
     reminders: d.reminders as AiReminderSettings,
+    limits: {
+      conversation_tokens: Number((d.limits as Record<string, unknown> | undefined)?.conversation_tokens ?? 60000),
+      monthly_budget_usd: Number((d.limits as Record<string, unknown> | undefined)?.monthly_budget_usd ?? 20),
+    },
     calendarActive: d.calendar_active === true,
     googleConfigured: d.google_configured === true,
     serviceAccountEmail: d.service_account_email != null ? String(d.service_account_email) : null,
@@ -121,6 +134,7 @@ export type AiAgentInput = {
   privacy_notice: string
   consent_required: boolean
   pilot_numbers: string[]
+  limits: AiLimits
 }
 
 /** changeReason: motivo del cambio de instrucciones; queda en el historial de versiones. */
@@ -206,6 +220,8 @@ export interface AiAgentActivity {
   runs: AiAgentRunRow[]
   last30: { replies: number; handoffs: number; errors: number; inputTokens: number; outputTokens: number }
   metrics: AiAgentMetrics
+  /** Gasto estimado del mes calendario frente al tope. */
+  budget: { monthUsd: number; monthlyBudgetUsd: number; percent: number | null }
 }
 
 export async function fetchAiAgentActivity(): Promise<AiAgentActivity> {
@@ -221,6 +237,7 @@ export function mapActivity(body: { data?: unknown; meta?: Record<string, unknow
   const k = (body.meta?.metrics ?? {}) as Record<string, unknown>
   const leads = (k.leads ?? {}) as Record<string, number>
   const rt = (k.response_time ?? {}) as Record<string, unknown>
+  const b = (body.meta?.budget ?? {}) as Record<string, unknown>
   return {
     runs: rows.map((r) => ({
       id: String(r.id),
@@ -261,6 +278,11 @@ export function mapActivity(body: { data?: unknown; meta?: Record<string, unknow
         samples: Number(rt.samples ?? 0),
       },
     },
+    budget: {
+      monthUsd: Number(b.month_usd ?? 0),
+      monthlyBudgetUsd: Number(b.monthly_budget_usd ?? 0),
+      percent: numOrNull(b.percent),
+    },
   }
 }
 
@@ -277,6 +299,8 @@ export const HANDOFF_TYPE_LABELS: Record<string, string> = {
   multimedia: 'Audio o archivo',
   falla_ia: 'Falla del asistente',
   precio_no_aprobado: 'Precio no aprobado',
+  tope_conversacion: 'Tope de la conversación',
+  tope_mensual: 'Tope de costo del mes',
 }
 
 /** Frase que el filtro de precios no dejó enviar, si la hubo. */

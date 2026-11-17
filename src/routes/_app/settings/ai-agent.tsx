@@ -126,6 +126,7 @@ function ConfigForm({ config, canEdit }: { config: AiAgentConfig; canEdit: boole
     privacy_notice: c.privacyNotice,
     consent_required: c.consentRequired,
     pilot_numbers: c.pilotNumbers,
+    limits: c.limits,
   })
   const [form, setForm] = useState<AiAgentInput>(() => toForm(config))
   const { data: users = [] } = useQuery({
@@ -257,6 +258,34 @@ function ConfigForm({ config, canEdit }: { config: AiAgentConfig; canEdit: boole
             disabled={!canEdit}
           />
         </Field>
+        <div className="grid gap-4 rounded-md border p-3 sm:grid-cols-2">
+          <Field
+            label="Tope por conversación (tokens en 24 h)"
+            hint="Unos 1.500 tokens por mensaje: 60.000 ≈ 40 mensajes. Al llegar, el chat pasa a un asesor. 0 = sin tope."
+          >
+            <Input
+              type="number"
+              min={0}
+              step={1000}
+              value={form.limits.conversation_tokens}
+              onChange={(e) => set('limits', { ...form.limits, conversation_tokens: Number(e.target.value) })}
+              disabled={!canEdit}
+            />
+          </Field>
+          <Field
+            label="Presupuesto mensual (USD)"
+            hint="Al 80 % avisa a los administradores; al 100 % el asistente pasa los chats a un asesor hasta el mes siguiente. 0 = sin tope."
+          >
+            <Input
+              type="number"
+              min={0}
+              step={1}
+              value={form.limits.monthly_budget_usd}
+              onChange={(e) => set('limits', { ...form.limits, monthly_budget_usd: Number(e.target.value) })}
+              disabled={!canEdit}
+            />
+          </Field>
+        </div>
         <Field
           label="Información del negocio"
           hint="Todo lo que el asistente puede contar: servicios, precios o rangos, proceso, horarios, ubicación, enlaces. No inventa nada que no esté aquí."
@@ -645,6 +674,11 @@ function ActivityCard() {
           <CardDescription>
             Últimos 30 días: {data.last30.replies} respuestas · {data.last30.handoffs} pasadas a asesor
             {data.last30.errors > 0 ? ` · ${data.last30.errors} errores` : ''} · costo aprox. USD {cost.toFixed(2)}
+            <br />
+            Este mes: USD {data.budget.monthUsd.toFixed(2)}
+            {data.budget.monthlyBudgetUsd > 0
+              ? ` de ${data.budget.monthlyBudgetUsd.toFixed(2)} (${data.budget.percent ?? 0} %)`
+              : ' (sin tope)'}
           </CardDescription>
         )}
       </CardHeader>

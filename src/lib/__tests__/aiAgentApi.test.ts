@@ -81,3 +81,10 @@ describe('mejora continua (RFC §17)', () => {
     expect(item).toMatchObject({ id: '9', reason: 'sin_informacion', contactId: '3', question: '¿SST?', reply: null })
   })
 })
+
+describe('seguridad (RFC §16)', () => {
+  it('lee los contadores de seguridad', () => {
+    const a = mapActivity({ data: [], meta: { metrics: { injection_attempts: 2, sensitive_masked: 5 } } })
+    expect(a.metrics).toMatchObject({ injectionAttempts: 2, sensitiveMasked: 5 })
+  })
+})

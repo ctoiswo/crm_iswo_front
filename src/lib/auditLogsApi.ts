@@ -82,6 +82,10 @@ export function formatAuditAction(action: string): string {
     tenant_deactivate: 'Desactivación de tenant',
     login: 'Inicio de sesión',
     logout: 'Cierre de sesión',
+    'whatsapp.conversation_view': 'Abrió una conversación de WhatsApp',
+    'ai_agent.injection_attempt': 'Asistente IA · intento de manipulación',
+    'ai_agent.rate': 'Asistente IA · calificó una respuesta',
+    'ai_agent.review': 'Asistente IA · revisó un pendiente',
   }
   if (labels[trimmed]) return labels[trimmed]
   return trimmed.replace(/\./g, ' · ')

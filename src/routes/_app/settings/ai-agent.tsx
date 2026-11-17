@@ -764,6 +764,14 @@ function PilotMetrics({ metrics }: { metrics: AiAgentMetrics }) {
       value: metrics.reviewPending,
       detail: 'Preguntas sin respuesta y respuestas mal calificadas',
     },
+    {
+      label: 'Intentos de manipulación',
+      value: metrics.injectionAttempts,
+      detail:
+        metrics.sensitiveMasked > 0
+          ? `${metrics.sensitiveMasked} mensajes con datos sensibles ocultos al modelo`
+          : 'Quedan en Auditoría',
+    },
   ]
   return (
     <dl className="grid grid-cols-2 gap-2">

@@ -219,6 +219,9 @@ export interface AiAgentMetrics {
   ratings: Record<AiRunRating, number>
   /** Pendientes en la cola de revisión semanal. */
   reviewPending: number
+  /** Seguridad (RFC §16): intentos de manipulación y mensajes con datos sensibles ocultos. */
+  injectionAttempts: number
+  sensitiveMasked: number
 }
 
 export interface AiAgentActivity {
@@ -288,6 +291,8 @@ export function mapActivity(body: { data?: unknown; meta?: Record<string, unknow
         incorrect: Number((k.ratings as Record<string, unknown> | undefined)?.incorrect ?? 0),
       },
       reviewPending: Number(k.review_pending ?? 0),
+      injectionAttempts: Number(k.injection_attempts ?? 0),
+      sensitiveMasked: Number(k.sensitive_masked ?? 0),
     },
     budget: {
       monthUsd: Number(b.month_usd ?? 0),
@@ -471,6 +476,8 @@ export const TOOL_LABELS: Record<string, string> = {
   reprogramar_cita: 'Reprogramó la cita',
   cancelar_cita: 'Canceló la cita',
   filtro_precios: 'Bloqueó un precio no aprobado',
+  datos_sensibles: 'Ocultó datos sensibles al modelo',
+  intento_manipulacion: 'Intento de manipulación (registrado)',
 }
 
 /** Etiqueta de una acción del asistente; las bloqueadas no se muestran como hechas. */

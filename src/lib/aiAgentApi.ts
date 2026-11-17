@@ -11,6 +11,7 @@ export const aiAgentQueryKeys = {
   activity: () => ['aiAgent', getAuthQueryScope(), 'activity'] as const,
   versions: () => ['aiAgent', getAuthQueryScope(), 'versions'] as const,
   version: (id: string) => ['aiAgent', getAuthQueryScope(), 'versions', id] as const,
+  review: () => ['aiAgent', getAuthQueryScope(), 'review'] as const,
 }
 
 export interface AiAgentConfig {
@@ -214,6 +215,10 @@ export interface AiAgentMetrics {
   handoffsByType: Record<string, number>
   /** Tiempo de respuesta: mediana y percentil 90 (ms); meta del RFC: menos de 10 s. */
   responseTime: { medianMs: number | null; p90Ms: number | null; samples: number }
+  /** Calificaciones de los asesores (RFC §17). */
+  ratings: Record<AiRunRating, number>
+  /** Pendientes en la cola de revisión semanal. */
+  reviewPending: number
 }
 
 export interface AiAgentActivity {
@@ -277,6 +282,12 @@ export function mapActivity(body: { data?: unknown; meta?: Record<string, unknow
         p90Ms: numOrNull(rt.p90_ms),
         samples: Number(rt.samples ?? 0),
       },
+      ratings: {
+        correct: Number((k.ratings as Record<string, unknown> | undefined)?.correct ?? 0),
+        partial: Number((k.ratings as Record<string, unknown> | undefined)?.partial ?? 0),
+        incorrect: Number((k.ratings as Record<string, unknown> | undefined)?.incorrect ?? 0),
+      },
+      reviewPending: Number(k.review_pending ?? 0),
     },
     budget: {
       monthUsd: Number(b.month_usd ?? 0),
@@ -338,6 +349,86 @@ function mapVersion(v: Record<string, unknown>): AiAgentConfigVersion {
     changedFields: Array.isArray(v.changed_fields) ? v.changed_fields.map(String) : [],
     content: v.content != null ? (v.content as Record<string, string | boolean>) : undefined,
   }
+}
+
+// ---- Mejora continua (RFC-001 v2 §17) ---------------------------------------
+
+export type AiRunRating = 'correct' | 'partial' | 'incorrect'
+
+export const RATING_LABELS: Record<AiRunRating, string> = {
+  correct: 'Correcta',
+  partial: 'Parcial',
+  incorrect: 'Incorrecta',
+}
+
+/** Respuesta del asistente en un mensaje de la bandeja (atributo `ai_run`). */
+export interface MessageAiRun {
+  id: string
+  rating: AiRunRating | null
+  ratingNote: string | null
+}
+
+export function mapMessageAiRun(raw: unknown): MessageAiRun | undefined {
+  if (!raw || typeof raw !== 'object') return undefined
+  const r = raw as Record<string, unknown>
+  const rating = typeof r.rating === 'string' && r.rating in RATING_LABELS ? (r.rating as AiRunRating) : null
+  return {
+    id: String(r.id ?? ''),
+    rating,
+    ratingNote: typeof r.rating_note === 'string' && r.rating_note ? r.rating_note : null,
+  }
+}
+
+/** rating null = quitar la calificación. */
+export async function rateAiAgentRun(id: string, rating: AiRunRating | null, note?: string): Promise<void> {
+  await api.post(`/ai_agent/runs/${id}/rating`, { rating: rating ?? '', note: note ?? '' })
+}
+
+export type ReviewReason = 'sin_informacion' | 'partial' | 'incorrect'
+
+export const REVIEW_REASON_LABELS: Record<ReviewReason, string> = {
+  sin_informacion: 'No supo responder',
+  partial: 'Calificada parcial',
+  incorrect: 'Calificada incorrecta',
+}
+
+export interface ReviewItem {
+  id: string
+  createdAt: string
+  reason: ReviewReason | null
+  contactId: string
+  contactName: string | null
+  question: string | null
+  reply: string | null
+  ratingNote: string | null
+  ratedByName: string | null
+  handoffReason: string | null
+}
+
+export function mapReviewItem(r: Record<string, unknown>): ReviewItem {
+  const str = (v: unknown) => (typeof v === 'string' && v ? v : null)
+  const reason = str(r.reason)
+  return {
+    id: String(r.id ?? ''),
+    createdAt: String(r.created_at ?? ''),
+    reason: reason && reason in REVIEW_REASON_LABELS ? (reason as ReviewReason) : null,
+    contactId: String(r.contact_id ?? ''),
+    contactName: str(r.contact_name),
+    question: str(r.question),
+    reply: str(r.reply),
+    ratingNote: str(r.rating_note),
+    ratedByName: str(r.rated_by_name),
+    handoffReason: str(r.handoff_reason),
+  }
+}
+
+export async function fetchAiAgentReview(): Promise<ReviewItem[]> {
+  const res = await api.get('/ai_agent/review')
+  return ((res.data.data ?? []) as Record<string, unknown>[]).map(mapReviewItem)
+}
+
+export async function markAiAgentRunReviewed(id: string, note?: string): Promise<void> {
+  await api.post(`/ai_agent/runs/${id}/review`, { note: note ?? '' })
 }
 
 export async function fetchAiAgentVersions(): Promise<AiAgentConfigVersion[]> {

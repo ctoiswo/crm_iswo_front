@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { blockedPriceSentence, formatSeconds, mapActivity, mapConfig } from '@/lib/aiAgentApi'
+import { blockedPriceSentence, formatSeconds, mapActivity, mapMessageAiRun, mapReviewItem, mapConfig } from '@/lib/aiAgentApi'
 
 describe('mapConfig', () => {
   it('lee el proceso comercial y su texto por defecto', () => {
@@ -62,5 +62,22 @@ describe('mapActivity: presupuesto', () => {
   it('lee el gasto del mes frente al tope', () => {
     const a = mapActivity({ data: [], meta: { budget: { month_usd: 3.25, monthly_budget_usd: 20, percent: 16 } } })
     expect(a.budget).toEqual({ monthUsd: 3.25, monthlyBudgetUsd: 20, percent: 16 })
+  })
+})
+
+describe('mejora continua (RFC §17)', () => {
+  it('lee la calificación de un mensaje del asistente', () => {
+    expect(mapMessageAiRun(undefined)).toBeUndefined()
+    expect(mapMessageAiRun({ id: 5, rating: 'partial', rating_note: 'Faltó SST' })).toEqual({
+      id: '5',
+      rating: 'partial',
+      ratingNote: 'Faltó SST',
+    })
+    expect(mapMessageAiRun({ id: 6, rating: 'otra' })?.rating).toBeNull()
+  })
+
+  it('lee un elemento de la cola de revisión', () => {
+    const item = mapReviewItem({ id: 9, reason: 'sin_informacion', contact_id: 3, question: '¿SST?', reply: '' })
+    expect(item).toMatchObject({ id: '9', reason: 'sin_informacion', contactId: '3', question: '¿SST?', reply: null })
   })
 })

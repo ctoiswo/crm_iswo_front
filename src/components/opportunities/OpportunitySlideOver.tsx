@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
+import { mapMessageAiRun } from '@/lib/aiAgentApi'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
@@ -234,6 +235,8 @@ export function OpportunitySlideOver({
             templateParams: Array.isArray(a.template_params)
               ? a.template_params.map((p) => String(p))
               : undefined,
+            automated: a.automated === true,
+            aiRun: mapMessageAiRun(a.ai_run),
           }
         })
         .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())

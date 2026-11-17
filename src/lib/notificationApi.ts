@@ -12,6 +12,7 @@ export type NotificationKind =
   | 'ai_agent_handoff'
   | 'ai_agent_hot_lead'
   | 'ai_agent_error'
+  | 'ai_agent_budget'
   | 'appointment'
   | 'other'
 
@@ -39,6 +40,7 @@ function parseKind(value: unknown): NotificationKind {
     k === 'ai_agent_handoff' ||
     k === 'ai_agent_hot_lead' ||
     k === 'ai_agent_error' ||
+    k === 'ai_agent_budget' ||
     k === 'appointment'
   ) {
     return k

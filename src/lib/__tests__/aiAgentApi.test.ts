@@ -57,3 +57,10 @@ describe('blockedPriceSentence', () => {
     expect(blockedPriceSentence([])).toBeNull()
   })
 })
+
+describe('mapActivity: presupuesto', () => {
+  it('lee el gasto del mes frente al tope', () => {
+    const a = mapActivity({ data: [], meta: { budget: { month_usd: 3.25, monthly_budget_usd: 20, percent: 16 } } })
+    expect(a.budget).toEqual({ monthUsd: 3.25, monthlyBudgetUsd: 20, percent: 16 })
+  })
+})

@@ -765,11 +765,11 @@ function VersionsCard() {
                   <p className="text-xs text-muted-foreground">
                     {formatDate(v.createdAt, "dd MMM yyyy, h:mm a")} · {v.userName ?? 'Sistema'}
                   </p>
-                  {v.changedFields.length > 0 && (
-                    <p className="text-xs text-muted-foreground">
-                      Cambió: {v.changedFields.map((f) => VERSION_FIELD_LABELS[f] ?? f).join(', ')}
-                    </p>
-                  )}
+                  <p className="text-xs text-muted-foreground">
+                    {v.changedFields.length > 0
+                      ? `Cambió: ${v.changedFields.map((f) => VERSION_FIELD_LABELS[f] ?? f).join(', ')}`
+                      : 'Primera versión registrada'}
+                  </p>
                   {v.reason && <p className="text-xs">«{v.reason}»</p>}
                 </div>
                 <Button variant="ghost" size="sm" onClick={() => setOpenId(v.id)}>

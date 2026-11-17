@@ -2,7 +2,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { AlertTriangle, Bot, BotOff, RotateCcw, Send, Sparkles } from 'lucide-react'
+import { AlertTriangle, Bot, BotOff, History, RotateCcw, Send, Sparkles } from 'lucide-react'
 import { requireSettingsRole } from '@/lib/authGuards'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -26,8 +26,9 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Spinner } from '@/components/ui/spinner'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { formatRailsError } from '@/lib/api'
-import { cn, formatRelativeTime } from '@/lib/utils'
+import { cn, formatDate, formatRelativeTime } from '@/lib/utils'
 import { useUserRole } from '@/stores/auth'
 import { AgendaSettings, RemindersSettings, UpcomingAppointments } from '@/components/ai-agent/AgendaSettings'
 import {
@@ -35,10 +36,15 @@ import {
   estimateCostUsd,
   fetchAiAgentActivity,
   fetchAiAgentConfig,
+  fetchAiAgentVersion,
+  fetchAiAgentVersions,
+  formatSeconds,
+  HANDOFF_TYPE_LABELS,
   setAllChatsPaused,
   testAiAgent,
   toolCallLabel,
   updateAiAgentConfig,
+  VERSION_FIELD_LABELS,
   type AiAgentConfig,
   type AiAgentInput,
   type AiAgentMetrics,
@@ -96,6 +102,7 @@ function AiAgentSettingsPage() {
             <PausedChatsCard config={config} canEdit={canEdit} />
             {canEdit && <TestChat disabled={!config.openaiConfigured} />}
             <ActivityCard />
+            <VersionsCard />
           </div>
         </div>
       )}
@@ -134,12 +141,15 @@ function ConfigForm({ config, canEdit }: { config: AiAgentConfig; canEdit: boole
 
   const [confirmOn, setConfirmOn] = useState(false)
   const [pauseHumanChats, setPauseHumanChats] = useState(true)
+  const [changeReason, setChangeReason] = useState('')
 
   const saveMutation = useMutation({
-    mutationFn: ({ body, pauseHuman }: { body: Partial<AiAgentInput>; pauseHuman?: boolean }) =>
-      updateAiAgentConfig(body, { pauseHumanChats: pauseHuman }),
+    mutationFn: ({ body, pauseHuman, reason }: { body: Partial<AiAgentInput>; pauseHuman?: boolean; reason?: string }) =>
+      updateAiAgentConfig(body, { pauseHumanChats: pauseHuman, changeReason: reason }),
     onSuccess: ({ config: next, pausedNow }, { body }) => {
       queryClient.setQueryData(aiAgentQueryKeys.config(), next)
+      void queryClient.invalidateQueries({ queryKey: aiAgentQueryKeys.versions() })
+      setChangeReason('')
       if (body.enabled !== undefined && Object.keys(body).length === 1) {
         toast.success(
           next.enabled
@@ -324,6 +334,19 @@ function ConfigForm({ config, canEdit }: { config: AiAgentConfig; canEdit: boole
           )}
         </div>
 
+        {canEdit && dirty && (
+          <Field
+            label="Motivo del cambio (opcional)"
+            hint="Queda en el historial de versiones junto con tu nombre y la fecha."
+          >
+            <Input
+              value={changeReason}
+              onChange={(e) => setChangeReason(e.target.value)}
+              placeholder="Ej: Frank aprobó las respuestas a objeciones"
+              maxLength={300}
+            />
+          </Field>
+        )}
         {canEdit ? (
           <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
             <Button variant="outline" onClick={() => setForm(toForm(config))} disabled={!dirty || saveMutation.isPending}>
@@ -332,7 +355,7 @@ function ConfigForm({ config, canEdit }: { config: AiAgentConfig; canEdit: boole
             <Button
               onClick={() => {
                 const { enabled: _enabled, ...rest } = form
-                saveMutation.mutate({ body: rest })
+                saveMutation.mutate({ body: rest, reason: changeReason })
               }}
               disabled={!dirty || saveMutation.isPending}
             >
@@ -644,6 +667,9 @@ function ActivityCard() {
                 {r.error && <p className="text-xs text-destructive">{r.error}</p>}
                 <p className="text-[11px] text-muted-foreground">
                   {formatRelativeTime(r.createdAt)}
+                  {r.latencyMs != null && ` · tardó ${formatSeconds(r.latencyMs)}`}
+                  {r.configVersion != null && ` · instrucciones v${r.configVersion}`}
+                  {r.handoffType && ` · motivo: ${HANDOFF_TYPE_LABELS[r.handoffType] ?? r.handoffType}`}
                   {r.toolCalls.length > 0 && ` · ${r.toolCalls.map(toolCallLabel).join(', ')}`}
                 </p>
               </li>
@@ -657,14 +683,26 @@ function ActivityCard() {
 
 /** Métricas del piloto (RFC-001 v2 §14), últimos 30 días. */
 function PilotMetrics({ metrics }: { metrics: AiAgentMetrics }) {
-  const { leads } = metrics
+  const { leads, responseTime } = metrics
+  const byType = Object.entries(metrics.handoffsByType)
+    .sort((a, b) => b[1] - a[1])
+    .map(([type, n]) => `${n} ${HANDOFF_TYPE_LABELS[type] ?? type}`)
+    .join(' · ')
   const items = [
     { label: 'Conversaciones', value: metrics.conversations },
     { label: 'Leads calificados', value: leads.cold + leads.warm + leads.hot, detail: `${leads.hot} calientes · ${leads.warm} tibios · ${leads.cold} fríos` },
     { label: 'Demos agendadas', value: metrics.demos, detail: metrics.demosCompleted > 0 ? `${metrics.demosCompleted} realizadas` : undefined },
-    { label: 'Pasadas a asesor', value: metrics.handoffs },
+    { label: 'Pasadas a asesor', value: metrics.handoffs, detail: byType || undefined },
     { label: 'Referidos', value: metrics.referrals },
     { label: 'Autorizaciones de datos', value: metrics.consents, detail: metrics.optOuts > 0 ? `${metrics.optOuts} bajas` : undefined },
+    {
+      label: 'Tiempo de respuesta (mediana)',
+      value: formatSeconds(responseTime.medianMs),
+      detail:
+        responseTime.samples > 0
+          ? `9 de cada 10 en ${formatSeconds(responseTime.p90Ms)} o menos · meta: menos de 10 s`
+          : 'Sin datos todavía',
+    },
   ]
   return (
     <dl className="grid grid-cols-2 gap-2">
@@ -676,5 +714,108 @@ function PilotMetrics({ metrics }: { metrics: AiAgentMetrics }) {
         </div>
       ))}
     </dl>
+  )
+}
+
+/** Historial de versiones de las instrucciones (RFC-001 v2 del asistente §13 y §17). */
+function VersionsCard() {
+  const [openId, setOpenId] = useState<string | null>(null)
+  const { data: versions = [], isLoading } = useQuery({
+    queryKey: aiAgentQueryKeys.versions(),
+    queryFn: fetchAiAgentVersions,
+  })
+  const { data: detail, isLoading: loadingDetail } = useQuery({
+    queryKey: aiAgentQueryKeys.version(openId ?? ''),
+    queryFn: () => fetchAiAgentVersion(openId as string),
+    enabled: openId !== null,
+  })
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-base">
+          <History className="size-4" />
+          Historial de instrucciones
+        </CardTitle>
+        <CardDescription>
+          Cada cambio en los textos del asistente queda como una versión, con quién lo hizo, cuándo y por qué. En
+          Actividad se ve con qué versión respondió cada mensaje.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <Skeleton className="h-24 w-full" />
+        ) : versions.length === 0 ? (
+          <p className="py-4 text-center text-sm text-muted-foreground">
+            Aún no hay versiones. Se crea una al guardar cambios o con la primera respuesta del asistente.
+          </p>
+        ) : (
+          <ul className="max-h-80 divide-y overflow-y-auto text-sm">
+            {versions.map((v, i) => (
+              <li key={v.id} className="flex items-start justify-between gap-3 py-2.5">
+                <div className="min-w-0 space-y-0.5">
+                  <p className="font-medium">
+                    v{v.number}
+                    {i === 0 && (
+                      <Badge className="ml-2 border-0 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
+                        Vigente
+                      </Badge>
+                    )}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {formatDate(v.createdAt, "dd MMM yyyy, h:mm a")} · {v.userName ?? 'Sistema'}
+                  </p>
+                  {v.changedFields.length > 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      Cambió: {v.changedFields.map((f) => VERSION_FIELD_LABELS[f] ?? f).join(', ')}
+                    </p>
+                  )}
+                  {v.reason && <p className="text-xs">«{v.reason}»</p>}
+                </div>
+                <Button variant="ghost" size="sm" onClick={() => setOpenId(v.id)}>
+                  Ver
+                </Button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </CardContent>
+
+      <Dialog open={openId !== null} onOpenChange={(open) => { if (!open) setOpenId(null) }}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Instrucciones v{detail?.number ?? ''}</DialogTitle>
+            <DialogDescription>
+              {detail
+                ? `${formatDate(detail.createdAt, "dd MMM yyyy, h:mm a")} · ${detail.userName ?? 'Sistema'}${detail.reason ? ` · «${detail.reason}»` : ''}`
+                : 'Cargando…'}
+            </DialogDescription>
+          </DialogHeader>
+          {loadingDetail || !detail?.content ? (
+            <Skeleton className="h-40 w-full" />
+          ) : (
+            <dl className="space-y-3 text-sm">
+              {Object.entries(VERSION_FIELD_LABELS).map(([key, label]) => {
+                const value = detail.content?.[key]
+                if (value === undefined) return null
+                return (
+                  <div key={key}>
+                    <dt className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                      {label}
+                      {detail.changedFields.includes(key) && (
+                        <Badge variant="outline" className="text-[10px]">Cambió</Badge>
+                      )}
+                    </dt>
+                    <dd className="whitespace-pre-wrap break-words">
+                      {typeof value === 'boolean' ? (value ? 'Sí' : 'No') : value || '—'}
+                    </dd>
+                  </div>
+                )
+              })}
+            </dl>
+          )}
+        </DialogContent>
+      </Dialog>
+    </Card>
   )
 }

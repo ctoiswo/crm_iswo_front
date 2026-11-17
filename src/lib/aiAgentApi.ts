@@ -9,6 +9,8 @@ export const aiAgentQueryKeys = {
   config: () => ['aiAgent', getAuthQueryScope(), 'config'] as const,
   appointments: () => ['aiAgent', getAuthQueryScope(), 'appointments'] as const,
   activity: () => ['aiAgent', getAuthQueryScope(), 'activity'] as const,
+  versions: () => ['aiAgent', getAuthQueryScope(), 'versions'] as const,
+  version: (id: string) => ['aiAgent', getAuthQueryScope(), 'versions', id] as const,
 }
 
 export interface AiAgentConfig {
@@ -121,11 +123,16 @@ export type AiAgentInput = {
   pilot_numbers: string[]
 }
 
+/** changeReason: motivo del cambio de instrucciones; queda en el historial de versiones. */
 export async function updateAiAgentConfig(
   body: Partial<AiAgentInput> & { calendar?: AiCalendarSettings; reminders?: AiReminderSettings },
-  options: { pauseHumanChats?: boolean } = {},
+  options: { pauseHumanChats?: boolean; changeReason?: string } = {},
 ): Promise<{ config: AiAgentConfig; pausedNow: number }> {
-  const res = await api.patch('/ai_agent', { ai_agent: body, pause_human_chats: options.pauseHumanChats })
+  const res = await api.patch('/ai_agent', {
+    ai_agent: body,
+    pause_human_chats: options.pauseHumanChats,
+    change_reason: options.changeReason?.trim() || undefined,
+  })
   return { config: mapConfig(res.data.data ?? {}), pausedNow: Number(res.data.meta?.paused_now ?? 0) }
 }
 
@@ -166,6 +173,14 @@ export interface AiAgentRunRow {
   error: string | null
   inputTokens: number
   outputTokens: number
+  /** Número de la versión de las instrucciones con que respondió. */
+  configVersion: number | null
+  /** Desde que llegó el mensaje del cliente hasta que salió la respuesta (ms). */
+  latencyMs: number | null
+  /** Tiempo esperando a OpenAI (ms). */
+  modelMs: number | null
+  /** Por qué pasó a un asesor (HANDOFF_TYPE_LABELS). */
+  handoffType: string | null
 }
 
 /** Métricas del piloto (últimos 30 días): solo lo que hizo el asistente. */
@@ -181,6 +196,10 @@ export interface AiAgentMetrics {
   /** Autorizaciones de datos (Ley 1581) que registró. */
   consents: number
   optOuts: number
+  /** Pasos a asesor por tipo (RFC §9). */
+  handoffsByType: Record<string, number>
+  /** Tiempo de respuesta: mediana y percentil 90 (ms); meta del RFC: menos de 10 s. */
+  responseTime: { medianMs: number | null; p90Ms: number | null; samples: number }
 }
 
 export interface AiAgentActivity {
@@ -191,10 +210,17 @@ export interface AiAgentActivity {
 
 export async function fetchAiAgentActivity(): Promise<AiAgentActivity> {
   const res = await api.get('/ai_agent/activity')
-  const rows = (res.data.data ?? []) as Record<string, unknown>[]
-  const m = (res.data.meta?.last_30_days ?? {}) as Record<string, number>
-  const k = (res.data.meta?.metrics ?? {}) as Record<string, unknown>
+  return mapActivity(res.data ?? {})
+}
+
+const numOrNull = (v: unknown): number | null => (v == null ? null : Number(v))
+
+export function mapActivity(body: { data?: unknown; meta?: Record<string, unknown> }): AiAgentActivity {
+  const rows = (body.data ?? []) as Record<string, unknown>[]
+  const m = (body.meta?.last_30_days ?? {}) as Record<string, number>
+  const k = (body.meta?.metrics ?? {}) as Record<string, unknown>
   const leads = (k.leads ?? {}) as Record<string, number>
+  const rt = (k.response_time ?? {}) as Record<string, unknown>
   return {
     runs: rows.map((r) => ({
       id: String(r.id),
@@ -207,6 +233,10 @@ export async function fetchAiAgentActivity(): Promise<AiAgentActivity> {
       error: r.error != null ? String(r.error) : null,
       inputTokens: Number(r.input_tokens ?? 0),
       outputTokens: Number(r.output_tokens ?? 0),
+      configVersion: numOrNull(r.config_version),
+      latencyMs: numOrNull(r.latency_ms),
+      modelMs: numOrNull(r.model_ms),
+      handoffType: r.handoff_type != null ? String(r.handoff_type) : null,
     })),
     last30: {
       replies: Number(m.replies ?? 0),
@@ -224,8 +254,82 @@ export async function fetchAiAgentActivity(): Promise<AiAgentActivity> {
       referrals: Number(k.referrals ?? 0),
       consents: Number(k.consents ?? 0),
       optOuts: Number(k.opt_outs ?? 0),
+      handoffsByType: (k.handoffs_by_type ?? {}) as Record<string, number>,
+      responseTime: {
+        medianMs: numOrNull(rt.median_ms),
+        p90Ms: numOrNull(rt.p90_ms),
+        samples: Number(rt.samples ?? 0),
+      },
     },
   }
+}
+
+/** Por qué pasó a un asesor; los tres últimos los decide el sistema. */
+export const HANDOFF_TYPE_LABELS: Record<string, string> = {
+  pidio_asesor: 'Pidió una persona',
+  compra_o_cotizacion: 'Compra o cotización',
+  molesto: 'Cliente molesto',
+  sin_informacion: 'Sin información',
+  agenda: 'Agendar',
+  datos_personales: 'Datos personales',
+  otro: 'Otro',
+  promesa: 'Prometió un asesor',
+  multimedia: 'Audio o archivo',
+  falla_ia: 'Falla del asistente',
+}
+
+/** 9500 → «9,5 s». */
+export function formatSeconds(ms: number | null): string {
+  if (ms == null) return '—'
+  return `${(ms / 1000).toLocaleString('es-CO', { maximumFractionDigits: 1 })} s`
+}
+
+// ---- Historial de versiones de las instrucciones (RFC §13 y §17) ----------
+
+export interface AiAgentConfigVersion {
+  id: string
+  number: number
+  createdAt: string
+  userName: string | null
+  reason: string | null
+  changedFields: string[]
+  /** Solo en el detalle: los textos de esa versión. */
+  content?: Record<string, string | boolean>
+}
+
+function mapVersion(v: Record<string, unknown>): AiAgentConfigVersion {
+  return {
+    id: String(v.id),
+    number: Number(v.number ?? 0),
+    createdAt: String(v.created_at ?? ''),
+    userName: v.user_name != null ? String(v.user_name) : null,
+    reason: v.reason != null ? String(v.reason) : null,
+    changedFields: Array.isArray(v.changed_fields) ? v.changed_fields.map(String) : [],
+    content: v.content != null ? (v.content as Record<string, string | boolean>) : undefined,
+  }
+}
+
+export async function fetchAiAgentVersions(): Promise<AiAgentConfigVersion[]> {
+  const res = await api.get('/ai_agent/versions')
+  return ((res.data.data ?? []) as Record<string, unknown>[]).map(mapVersion)
+}
+
+export async function fetchAiAgentVersion(id: string): Promise<AiAgentConfigVersion> {
+  const res = await api.get(`/ai_agent/versions/${id}`)
+  return mapVersion(res.data.data ?? {})
+}
+
+/** Nombre en pantalla de cada campo versionado. */
+export const VERSION_FIELD_LABELS: Record<string, string> = {
+  assistant_name: 'Nombre del asistente',
+  business_info: 'Información del negocio',
+  faq: 'Preguntas frecuentes',
+  tone: 'Tono',
+  sales_process: 'Proceso comercial',
+  qualification: 'Calificación',
+  handoff_rules: 'Paso a asesor',
+  privacy_notice: 'Aviso de autorización',
+  consent_required: 'Pedir autorización',
 }
 
 /** Costo aproximado en USD con precios de referencia de la línea «mini» (USD por millón de tokens). */

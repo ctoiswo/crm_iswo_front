@@ -315,6 +315,15 @@ export async function deleteContact(id: string): Promise<void> {
   await api.delete(`/contacts/${id}`)
 }
 
+/**
+ * Supresión de datos personales (Ley 1581): borra conversaciones y anonimiza
+ * el contacto; queda solo el teléfono para respetar la baja. Solo admin.
+ */
+export async function eraseContactPersonalData(id: string): Promise<Record<string, number>> {
+  const res = await api.post(`/contacts/${id}/erase_personal_data`)
+  return (res.data?.data ?? {}) as Record<string, number>
+}
+
 export async function bulkDeleteContacts(ids: string[]): Promise<{ deleted: number }> {
   const response = await api.delete('/contacts/bulk_destroy', { data: { ids } })
   return (response.data as { data: { deleted: number } }).data

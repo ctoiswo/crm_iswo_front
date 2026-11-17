@@ -3,12 +3,14 @@ import { requireSettingsRole } from '@/lib/authGuards'
 import { useEffect, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Clock, Network } from 'lucide-react'
+import { Archive, Clock, Network } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Slider } from '@/components/ui/slider'
 import { Separator } from '@/components/ui/separator'
 import { Spinner } from '@/components/ui/spinner'
+import { Input } from '@/components/ui/input'
+import { Switch } from '@/components/ui/switch'
 import api, { formatRailsError } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
 
@@ -26,6 +28,12 @@ const NETWORK_DEPTH_OPTIONS = [
   { value: 5, label: '5 niveles', description: 'Máximo en /network' },
 ]
 
+function retentionDays(settings: Record<string, unknown> | undefined): number | null {
+  const raw = (settings?.data_retention as { conversation_days?: unknown } | undefined)?.conversation_days
+  const days = Number(raw)
+  return raw != null && raw !== '' && Number.isFinite(days) && days > 0 ? days : null
+}
+
 function GeneralSettingsPage() {
   const tenant      = useAuthStore((s) => s.tenant)
   const setTenant   = useAuthStore((s) => s.setTenant)
@@ -38,14 +46,22 @@ function GeneralSettingsPage() {
 
   const [staleDays,    setStaleDays]    = useState(currentStaleDays)
   const [networkDepth, setNetworkDepth] = useState(currentNetworkDepth)
+  // Retención de conversaciones (Ley 1581): null = sin borrado automático.
+  const currentRetention = retentionDays(tenant?.settings)
+  const [retention, setRetention] = useState<number | null>(currentRetention)
 
   useEffect(() => {
     setStaleDays(tenant?.settings?.stale_days    ?? 7)
     setNetworkDepth(tenant?.settings?.network_depth ?? 3)
-  }, [tenant?.settings?.stale_days, tenant?.settings?.network_depth])
+    setRetention(retentionDays(tenant?.settings))
+  }, [tenant?.settings])
 
   const saveMutation = useMutation({
-    mutationFn: async (patch: { stale_days?: number; network_depth?: number }) => {
+    mutationFn: async (patch: {
+      stale_days?: number
+      network_depth?: number
+      data_retention?: { conversation_days: number | null }
+    }) => {
       const res = await api.patch('/tenant', {
         tenant: {
           settings: { ...(tenant?.settings ?? {}), ...patch },
@@ -66,10 +82,15 @@ function GeneralSettingsPage() {
 
   const isDirty =
     staleDays    !== currentStaleDays ||
-    networkDepth !== currentNetworkDepth
+    networkDepth !== currentNetworkDepth ||
+    retention    !== currentRetention
 
   const handleSave = () => {
-    saveMutation.mutate({ stale_days: staleDays, network_depth: networkDepth })
+    saveMutation.mutate({
+      stale_days: staleDays,
+      network_depth: networkDepth,
+      data_retention: { conversation_days: retention },
+    })
   }
 
   return (
@@ -173,6 +194,49 @@ function GeneralSettingsPage() {
         </CardContent>
       </Card>
 
+      <Separator />
+
+      {/* Retención de conversaciones */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Archive className="size-4 text-sky-500" />
+            Retención de conversaciones de WhatsApp
+          </CardTitle>
+          <CardDescription>
+            Plazo de conservación (Ley 1581). Cada noche se borran los mensajes más viejos que el plazo y lo que el
+            asistente IA anotó de ellos; los contactos y el pipeline no se tocan. Para borrar todo de una persona que
+            lo pide, usa «Borrar datos personales» en su ficha de contacto.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <label className="flex items-center gap-3 text-sm">
+            <Switch
+              checked={retention !== null}
+              disabled={!canEdit}
+              onCheckedChange={(on) => setRetention(on ? 730 : null)}
+            />
+            {retention === null ? 'Sin borrado automático (se conservan)' : 'Borrar automáticamente'}
+          </label>
+          {retention !== null && (
+            <div className="flex items-center gap-2">
+              <Input
+                type="number"
+                min={30}
+                max={3650}
+                value={retention}
+                disabled={!canEdit}
+                onChange={(e) => setRetention(Math.max(30, Number(e.target.value) || 30))}
+                className="w-28"
+              />
+              <span className="text-sm text-muted-foreground">
+                días ({(retention / 365).toFixed(1).replace('.', ',')} años). Mínimo 30.
+              </span>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {canEdit && (
         <div className="flex justify-end gap-3">
           <Button
@@ -181,6 +245,7 @@ function GeneralSettingsPage() {
             onClick={() => {
               setStaleDays(currentStaleDays)
               setNetworkDepth(currentNetworkDepth)
+              setRetention(currentRetention)
             }}
           >
             Cancelar

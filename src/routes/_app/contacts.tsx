@@ -73,6 +73,7 @@ import {
   EMAIL_OPT_OUT_LABELS,
   contactListErrorMessage,
   deleteContact,
+  eraseContactPersonalData,
   fetchAllContacts,
   fetchContactsList,
   fetchContactStats,
@@ -128,6 +129,8 @@ function ContactsPage() {
   const [companyPage, setCompanyPage] = useState(1)
   const pageSize = 10
   const [confirmDeleteContact, setConfirmDeleteContact] = useState<ContactRow | null>(null)
+  const [confirmEraseContact, setConfirmEraseContact] = useState<{ id: string; fullName: string } | null>(null)
+  const [eraseConfirmText, setEraseConfirmText] = useState('')
   const [refreshing, setRefreshing] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false)
@@ -287,6 +290,22 @@ function ContactsPage() {
     },
     onError: (err: unknown) => {
       toast.error(formatRailsError(err, 'No se pudo eliminar el contacto'))
+    },
+  })
+
+  const eraseContactMutation = useMutation({
+    mutationFn: async (contact: { id: string }) => eraseContactPersonalData(contact.id),
+    onSuccess: async (counts) => {
+      await invalidateContactsQueries(queryClient)
+      toast.success(
+        `Datos personales eliminados${counts.whatsapp_messages ? ` (${counts.whatsapp_messages} mensajes de WhatsApp)` : ''}`
+      )
+      setConfirmEraseContact(null)
+      setEraseConfirmText('')
+      void navigate({ search: (prev) => ({ ...prev, selected: undefined }) })
+    },
+    onError: (err: unknown) => {
+      toast.error(formatRailsError(err, 'No se pudieron eliminar los datos'))
     },
   })
 
@@ -1103,6 +1122,9 @@ function ContactsPage() {
         }}
         canEdit={selectedPreview ? canEditContact(selectedPreview) : false}
         onDelete={canDeleteContacts ? (c) => handleDeleteContact(c) : undefined}
+        onErasePersonalData={
+          canDeleteContacts ? (c) => setConfirmEraseContact({ id: c.id, fullName: c.fullName }) : undefined
+        }
         canDelete={canDeleteContacts}
       />
 
@@ -1206,6 +1228,57 @@ function ContactsPage() {
               onClick={() => { if (confirmDeleteContact) deleteContactMutation.mutate(confirmDeleteContact) }}
             >
               Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={!!confirmEraseContact}
+        onOpenChange={(o) => {
+          if (!o) {
+            setConfirmEraseContact(null)
+            setEraseConfirmText('')
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Borrar datos personales (Ley 1581)</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2 text-sm text-muted-foreground">
+                <p>
+                  Para cuando <strong>{confirmEraseContact?.fullName}</strong> pide que se supriman sus datos. Se borran
+                  sus conversaciones de WhatsApp y formularios, y se quitan nombre, correo, documento, empresa, notas y
+                  campos de sus oportunidades.
+                </p>
+                <p>
+                  Queda solo su teléfono, cifrado y dado de baja, para no volver a escribirle. Las cifras del pipeline
+                  se conservan sin datos personales. No se puede deshacer y queda en Auditoría.
+                </p>
+                <p>
+                  Escribe <strong>BORRAR</strong> para confirmar.
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <Input
+            value={eraseConfirmText}
+            onChange={(e) => setEraseConfirmText(e.target.value)}
+            placeholder="BORRAR"
+            aria-label="Escribe BORRAR para confirmar"
+          />
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive hover:bg-destructive/90"
+              disabled={eraseConfirmText.trim().toUpperCase() !== 'BORRAR' || eraseContactMutation.isPending}
+              onClick={(e) => {
+                e.preventDefault()
+                if (confirmEraseContact) eraseContactMutation.mutate(confirmEraseContact)
+              }}
+            >
+              Borrar datos
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

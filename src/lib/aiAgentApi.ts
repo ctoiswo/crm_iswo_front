@@ -15,6 +15,7 @@ export const aiAgentQueryKeys = {
   evals: () => ['aiAgent', getAuthQueryScope(), 'evals'] as const,
   evalRun: (id: string) => ['aiAgent', getAuthQueryScope(), 'evals', id] as const,
   evalCases: () => ['aiAgent', getAuthQueryScope(), 'evalCases'] as const,
+  weeklyReview: () => ['aiAgent', getAuthQueryScope(), 'weeklyReview'] as const,
 }
 
 export interface AiAgentConfig {
@@ -336,6 +337,8 @@ export interface AiAgentMetrics {
   /** Seguridad (RFC §16): intentos de manipulación y mensajes con datos sensibles ocultos. */
   injectionAttempts: number
   sensitiveMasked: number
+  /** Errores por categoría (RFC §17): esta ventana y la anterior (reincidencia). */
+  errorsByCategory: Record<string, { current: number; previous: number }>
 }
 
 export interface AiAgentActivity {
@@ -406,6 +409,12 @@ export function mapActivity(body: { data?: unknown; meta?: Record<string, unknow
       },
       reviewPending: Number(k.review_pending ?? 0),
       injectionAttempts: Number(k.injection_attempts ?? 0),
+      errorsByCategory: Object.fromEntries(
+        Object.entries((k.errors_by_category ?? {}) as Record<string, Record<string, unknown>>).map(([cat, v]) => [
+          cat,
+          { current: Number(v?.current ?? 0), previous: Number(v?.previous ?? 0) },
+        ]),
+      ),
       sensitiveMasked: Number(k.sensitive_masked ?? 0),
     },
     budget: {
@@ -481,10 +490,36 @@ export const RATING_LABELS: Record<AiRunRating, string> = {
 }
 
 /** Respuesta del asistente en un mensaje de la bandeja (atributo `ai_run`). */
+// Categorías y severidad de los errores (RFC §17), con la severidad sugerida.
+export const ERROR_CATEGORIES: { key: string; label: string; severity: ErrorSeverity }[] = [
+  { key: 'respuesta_incorrecta', label: 'Respuesta incorrecta', severity: 'critica' },
+  { key: 'precio_fuera_de_base', label: 'Precio o condición no aprobada', severity: 'critica' },
+  { key: 'transferencia_fallida', label: 'No pasó a un asesor cuando debía', severity: 'alta' },
+  { key: 'cita_fallida', label: 'Cita duplicada o no creada', severity: 'alta' },
+  { key: 'referido_duplicado', label: 'Referido duplicado', severity: 'alta' },
+  { key: 'objecion_sin_respuesta', label: 'Objeción sin respuesta', severity: 'media' },
+  { key: 'tono_inadecuado', label: 'Tono inadecuado', severity: 'baja' },
+]
+
+export type ErrorSeverity = 'critica' | 'alta' | 'media' | 'baja'
+
+export const SEVERITY_LABELS: Record<ErrorSeverity, string> = {
+  critica: 'Crítica',
+  alta: 'Alta',
+  media: 'Media',
+  baja: 'Baja',
+}
+
+export const ERROR_CATEGORY_LABELS: Record<string, string> = Object.fromEntries(
+  ERROR_CATEGORIES.map((c) => [c.key, c.label]),
+)
+
 export interface MessageAiRun {
   id: string
   rating: AiRunRating | null
   ratingNote: string | null
+  errorCategory: string | null
+  errorSeverity: ErrorSeverity | null
 }
 
 export function mapMessageAiRun(raw: unknown): MessageAiRun | undefined {
@@ -495,12 +530,27 @@ export function mapMessageAiRun(raw: unknown): MessageAiRun | undefined {
     id: String(r.id ?? ''),
     rating,
     ratingNote: typeof r.rating_note === 'string' && r.rating_note ? r.rating_note : null,
+    errorCategory: typeof r.error_category === 'string' && r.error_category ? r.error_category : null,
+    errorSeverity:
+      typeof r.error_severity === 'string' && r.error_severity in SEVERITY_LABELS
+        ? (r.error_severity as ErrorSeverity)
+        : null,
   }
 }
 
-/** rating null = quitar la calificación. */
-export async function rateAiAgentRun(id: string, rating: AiRunRating | null, note?: string): Promise<void> {
-  await api.post(`/ai_agent/runs/${id}/rating`, { rating: rating ?? '', note: note ?? '' })
+/** rating null = quitar la calificación. category/severity solo con parcial o incorrecta. */
+export async function rateAiAgentRun(
+  id: string,
+  rating: AiRunRating | null,
+  note?: string,
+  error?: { category?: string; severity?: ErrorSeverity },
+): Promise<void> {
+  await api.post(`/ai_agent/runs/${id}/rating`, {
+    rating: rating ?? '',
+    note: note ?? '',
+    category: error?.category ?? '',
+    severity: error?.severity ?? '',
+  })
 }
 
 export type ReviewReason = 'sin_informacion' | 'partial' | 'incorrect'
@@ -522,6 +572,8 @@ export interface ReviewItem {
   ratingNote: string | null
   ratedByName: string | null
   handoffReason: string | null
+  errorCategory: string | null
+  errorSeverity: ErrorSeverity | null
 }
 
 export function mapReviewItem(r: Record<string, unknown>): ReviewItem {
@@ -538,6 +590,8 @@ export function mapReviewItem(r: Record<string, unknown>): ReviewItem {
     ratingNote: str(r.rating_note),
     ratedByName: str(r.rated_by_name),
     handoffReason: str(r.handoff_reason),
+    errorCategory: str(r.error_category),
+    errorSeverity: (str(r.error_severity) as ErrorSeverity | null) ?? null,
   }
 }
 
@@ -797,4 +851,59 @@ export async function createEvalCase(body: {
 
 export async function deleteEvalCase(id: string): Promise<void> {
   await api.delete(`/ai_agent/eval_cases/${id}`)
+}
+
+// ---- Revisión semanal (RFC §17) ----------------------------------------------
+
+export interface WeeklyReview {
+  since: string
+  conversations: number
+  /** Porcentajes (null sin conversaciones). */
+  handoffRate: number | null
+  optOutRate: number | null
+  errorRate: number | null
+  stages: { stage: string; count: number; won: number }[]
+  objections: { key: string; trigger: string; conversations: number }[]
+  sample: {
+    contactId: string
+    contactName: string | null
+    replies: number
+    handoff: boolean
+    lastAt: string | null
+    ratings: Record<string, number>
+  }[]
+}
+
+export function mapWeeklyReview(d: Record<string, unknown>): WeeklyReview {
+  const pct = (v: unknown) => (v == null ? null : Number(v))
+  return {
+    since: String(d.since ?? ''),
+    conversations: Number(d.conversations ?? 0),
+    handoffRate: pct(d.handoff_rate),
+    optOutRate: pct(d.opt_out_rate),
+    errorRate: pct(d.error_rate),
+    stages: ((d.stages ?? []) as Record<string, unknown>[]).map((s) => ({
+      stage: String(s.stage ?? ''),
+      count: Number(s.count ?? 0),
+      won: Number(s.won ?? 0),
+    })),
+    objections: ((d.objections ?? []) as Record<string, unknown>[]).map((o) => ({
+      key: String(o.key ?? ''),
+      trigger: String(o.trigger ?? ''),
+      conversations: Number(o.conversations ?? 0),
+    })),
+    sample: ((d.sample ?? []) as Record<string, unknown>[]).map((c) => ({
+      contactId: String(c.contact_id ?? ''),
+      contactName: c.contact_name != null ? String(c.contact_name) : null,
+      replies: Number(c.replies ?? 0),
+      handoff: c.handoff === true,
+      lastAt: c.last_at != null ? String(c.last_at) : null,
+      ratings: (c.ratings ?? {}) as Record<string, number>,
+    })),
+  }
+}
+
+export async function fetchWeeklyReview(): Promise<WeeklyReview> {
+  const res = await api.get('/ai_agent/weekly_review')
+  return mapWeeklyReview(res.data.data ?? {})
 }

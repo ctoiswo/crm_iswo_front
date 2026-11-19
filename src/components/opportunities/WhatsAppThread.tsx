@@ -31,7 +31,16 @@ import { toast } from 'sonner'
 import api, { formatRailsError } from '@/lib/api'
 import { queryKeys } from '@/lib/queryClient'
 import { fetchWhatsappTemplates } from '@/lib/whatsappTemplatesApi'
-import { rateAiAgentRun, RATING_LABELS, type AiRunRating, type MessageAiRun } from '@/lib/aiAgentApi'
+import {
+  ERROR_CATEGORIES,
+  ERROR_CATEGORY_LABELS,
+  rateAiAgentRun,
+  RATING_LABELS,
+  SEVERITY_LABELS,
+  type AiRunRating,
+  type ErrorSeverity,
+  type MessageAiRun,
+} from '@/lib/aiAgentApi'
 
 /** WhatsApp cierra la ventana de servicio 24h después del último mensaje del contacto. */
 const SERVICE_WINDOW_MS = 24 * 60 * 60 * 1000
@@ -80,11 +89,17 @@ function AiRating({
   const queryClient = useQueryClient()
   const [pending, setPending] = useState<AiRunRating | null>(null)
   const [note, setNote] = useState('')
+  // Categoría y severidad del error (RFC §17), solo para parcial o incorrecta.
+  const [category, setCategory] = useState('')
+  const [severity, setSeverity] = useState<ErrorSeverity | ''>('')
   const mutation = useMutation({
-    mutationFn: ({ rating, note: n }: { rating: AiRunRating | null; note?: string }) => rateAiAgentRun(run.id, rating, n),
+    mutationFn: ({ rating, note: n }: { rating: AiRunRating | null; note?: string }) =>
+      rateAiAgentRun(run.id, rating, n, category ? { category, severity: severity || undefined } : undefined),
     onSuccess: () => {
       setPending(null)
       setNote('')
+      setCategory('')
+      setSeverity('')
       void queryClient.invalidateQueries({ queryKey: messagesKey })
     },
     onError: (err) => toast.error(formatRailsError(err) || 'No se pudo guardar la calificación'),
@@ -97,6 +112,8 @@ function AiRating({
     if (rating === 'correct') return mutation.mutate({ rating })
     setPending(rating)
     setNote(run.rating === rating ? run.ratingNote ?? '' : '')
+    setCategory(run.errorCategory ?? '')
+    setSeverity(run.errorSeverity ?? '')
   }
 
   return (
@@ -128,8 +145,48 @@ function AiRating({
             )
           })}
       </div>
+      {run.errorCategory && !pending && (
+        <p className="mt-1 text-right text-[10px] text-muted-foreground">
+          {ERROR_CATEGORY_LABELS[run.errorCategory] ?? run.errorCategory}
+          {run.errorSeverity && ` · severidad ${SEVERITY_LABELS[run.errorSeverity].toLowerCase()}`}
+        </p>
+      )}
       {run.ratingNote && !pending && (
         <p className="mt-1 text-right text-[11px] italic text-muted-foreground">«{run.ratingNote}»</p>
+      )}
+      {pending && (
+        <div className="mt-1.5 flex flex-wrap gap-1.5">
+          <select
+            aria-label="Tipo de error"
+            value={category}
+            onChange={(e) => {
+              setCategory(e.target.value)
+              setSeverity(ERROR_CATEGORIES.find((c) => c.key === e.target.value)?.severity ?? '')
+            }}
+            className="h-7 min-w-0 flex-1 rounded-md border bg-background px-1.5 text-xs"
+          >
+            <option value="">Tipo de error (opcional)</option>
+            {ERROR_CATEGORIES.map((c) => (
+              <option key={c.key} value={c.key}>
+                {c.label}
+              </option>
+            ))}
+          </select>
+          {category && (
+            <select
+              aria-label="Severidad"
+              value={severity}
+              onChange={(e) => setSeverity(e.target.value as ErrorSeverity)}
+              className="h-7 rounded-md border bg-background px-1.5 text-xs"
+            >
+              {(Object.keys(SEVERITY_LABELS) as ErrorSeverity[]).map((sv) => (
+                <option key={sv} value={sv}>
+                  Severidad {SEVERITY_LABELS[sv].toLowerCase()}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
       )}
       {pending && (
         <form

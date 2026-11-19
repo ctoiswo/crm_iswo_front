@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { blockedPriceSentence, formatSeconds, mapActivity, mapEvalRun, mapMessageAiRun, mapReviewItem, mapConfig } from '@/lib/aiAgentApi'
+import { blockedPriceSentence, formatSeconds, mapActivity, mapEvalRun, mapMessageAiRun, mapReviewItem, mapConfig, mapWeeklyReview } from '@/lib/aiAgentApi'
 
 describe('mapConfig', () => {
   it('lee el proceso comercial y su texto por defecto', () => {
@@ -106,6 +106,8 @@ describe('mejora continua (RFC §17)', () => {
       id: '5',
       rating: 'partial',
       ratingNote: 'Faltó SST',
+      errorCategory: null,
+      errorSeverity: null,
     })
     expect(mapMessageAiRun({ id: 6, rating: 'otra' })?.rating).toBeNull()
   })
@@ -134,5 +136,30 @@ describe('mapEvalRun', () => {
     })
     expect(r).toMatchObject({ id: '5', status: 'done', passed: 1, failed: 1, configVersion: 7, userName: 'Ana' })
     expect(r.results[1]).toMatchObject({ passed: false, attempts: 1, passedAttempts: 0, failures: ['dice «gratis»'] })
+  })
+})
+
+describe('categorías de error y revisión semanal (RFC §17)', () => {
+  it('lee categoría y severidad de la respuesta y de la cola', () => {
+    expect(mapMessageAiRun({ id: 1, rating: 'incorrect', error_category: 'tono_inadecuado', error_severity: 'baja' }))
+      .toMatchObject({ errorCategory: 'tono_inadecuado', errorSeverity: 'baja' })
+    expect(mapMessageAiRun({ id: 1, rating: 'correct', error_severity: 'otra' })).toMatchObject({ errorCategory: null, errorSeverity: null })
+    expect(mapReviewItem({ id: 2, error_category: 'cita_fallida', error_severity: 'alta' })).toMatchObject({ errorCategory: 'cita_fallida' })
+  })
+
+  it('lee errores por categoría con la ventana anterior', () => {
+    const a = mapActivity({ data: [], meta: { metrics: { errors_by_category: { cita_fallida: { current: 2, previous: 1 } } } } })
+    expect(a.metrics.errorsByCategory).toEqual({ cita_fallida: { current: 2, previous: 1 } })
+  })
+
+  it('lee la revisión semanal', () => {
+    const w = mapWeeklyReview({
+      conversations: 4, handoff_rate: 25, opt_out_rate: null, error_rate: 0,
+      stages: [{ stage: 'Contactada', count: 3, won: 0 }],
+      objections: [{ key: 'caro', trigger: 'Es caro', conversations: 2 }],
+      sample: [{ contact_id: 9, contact_name: 'Ana', replies: 3, handoff: true, ratings: { correct: 1 } }],
+    })
+    expect(w).toMatchObject({ conversations: 4, handoffRate: 25, optOutRate: null })
+    expect(w.sample[0]).toMatchObject({ contactId: '9', handoff: true, lastAt: null })
   })
 })

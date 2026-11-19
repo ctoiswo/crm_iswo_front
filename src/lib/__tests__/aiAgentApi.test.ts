@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { blockedPriceSentence, formatSeconds, mapActivity, mapMessageAiRun, mapReviewItem, mapConfig } from '@/lib/aiAgentApi'
+import { blockedPriceSentence, formatSeconds, mapActivity, mapEvalRun, mapMessageAiRun, mapReviewItem, mapConfig } from '@/lib/aiAgentApi'
 
 describe('mapConfig', () => {
   it('lee el proceso comercial y su texto por defecto', () => {
@@ -120,5 +120,19 @@ describe('seguridad (RFC §16)', () => {
   it('lee los contadores de seguridad', () => {
     const a = mapActivity({ data: [], meta: { metrics: { injection_attempts: 2, sensitive_masked: 5 } } })
     expect(a.metrics).toMatchObject({ injectionAttempts: 2, sensitiveMasked: 5 })
+  })
+})
+
+describe('mapEvalRun', () => {
+  it('lee el resumen y el resultado de cada caso', () => {
+    const r = mapEvalRun({
+      id: 5, status: 'done', repeat: 2, total: 2, passed: 1, failed: 1, config_version: 7, user_name: 'Ana',
+      results: [
+        { name: 'saluda', category: 'etapa', passed: true, attempts: 2, passed_attempts: 2 },
+        { name: 'precio', category: 'regresion', passed: false, failures: ['dice «gratis»'], reply: 'Es gratis', tools: [] },
+      ],
+    })
+    expect(r).toMatchObject({ id: '5', status: 'done', passed: 1, failed: 1, configVersion: 7, userName: 'Ana' })
+    expect(r.results[1]).toMatchObject({ passed: false, attempts: 1, passedAttempts: 0, failures: ['dice «gratis»'] })
   })
 })

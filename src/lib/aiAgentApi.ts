@@ -138,6 +138,11 @@ export interface AiReminderSettings {
   staff_offset_minutes: number
   daily_summary: boolean
   no_show_followup: boolean
+  /** «¿Qué te pareció?» tras una cita marcada como realizada (RFC §5). */
+  post_demo_followup: boolean
+  post_demo_template_id: string | null
+  /** Horas después de terminar la cita. */
+  post_demo_hours: number
 }
 
 export interface AiCalendarSettings {

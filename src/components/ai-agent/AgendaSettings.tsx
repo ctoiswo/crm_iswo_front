@@ -390,6 +390,11 @@ export const reminderTemplateText = (company: string) =>
 export const noShowTemplateText = (company: string) =>
   `Hola {{1}}, te esperábamos en la reunión con ${company} del {{2}} y no pudimos conectarnos. ¿Agendamos otro horario?`
 
+export const postDemoTemplateText = (company: string) =>
+  `Hola {{1}}, gracias por tu tiempo en la reunión con {{2}}. ¿Qué te pareció? Si te quedó alguna duda o quieres avanzar con la propuesta, responde este mensaje.\n[Variables: {{1}} nombre, {{2}} ${company}]`
+
+const POST_DEMO_HOURS = [1, 2, 4, 24]
+
 /** Recordatorios al cliente y al equipo (fase 3). */
 export function RemindersSettings({ config, canEdit }: { config: AiAgentConfig; canEdit: boolean }) {
   const queryClient = useQueryClient()
@@ -416,7 +421,7 @@ export function RemindersSettings({ config, canEdit }: { config: AiAgentConfig; 
     onError: (err) => toast.error(formatRailsError(err, 'No se pudo guardar')),
   })
 
-  const templateSelect = (key: 'whatsapp_template_id' | 'no_show_template_id', id: string) => (
+  const templateSelect = (key: 'whatsapp_template_id' | 'no_show_template_id' | 'post_demo_template_id', id: string) => (
     <Select value={form[key] ?? NONE} onValueChange={(v) => set(key, v === NONE ? null : v)} disabled={!canEdit}>
       <SelectTrigger id={id}><SelectValue placeholder="Sin plantilla" /></SelectTrigger>
       <SelectContent>
@@ -514,6 +519,41 @@ export function RemindersSettings({ config, canEdit }: { config: AiAgentConfig; 
             <>
               {templateSelect('no_show_template_id', 'noShowTemplate')}
               <TemplateHint text={noShowTemplateText(company)} />
+            </>
+          )}
+        </div>
+
+        <div className="space-y-2">
+          <label className="flex items-center justify-between gap-3 text-sm">
+            <span>
+              <span className="font-medium">Después de la demo, preguntar qué le pareció</span>
+              <span className="block text-xs text-muted-foreground">
+                Por WhatsApp, unas horas después de una cita marcada «Asistió». La respuesta la atiende el asistente.
+              </span>
+            </span>
+            <Switch checked={form.post_demo_followup ?? true} onCheckedChange={(v) => set('post_demo_followup', v)} disabled={!canEdit} />
+          </label>
+          {(form.post_demo_followup ?? true) && (
+            <>
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="text-xs text-muted-foreground">Enviar</span>
+                {POST_DEMO_HOURS.map((h) => {
+                  const on = (form.post_demo_hours ?? 2) === h
+                  return (
+                    <button key={h} type="button" disabled={!canEdit} aria-pressed={on}
+                      onClick={() => set('post_demo_hours', h)}
+                      className={cn('rounded-md border px-2.5 py-1 text-xs transition-colors',
+                        on ? 'border-primary bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted')}>
+                      {h} h después
+                    </button>
+                  )
+                })}
+              </div>
+              {templateSelect('post_demo_template_id', 'postDemoTemplate')}
+              <p className="text-xs text-muted-foreground">
+                Sin plantilla solo se envía si el cliente escribió en las últimas 24 h.
+              </p>
+              <TemplateHint text={postDemoTemplateText(company)} />
             </>
           )}
         </div>

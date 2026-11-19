@@ -2,7 +2,7 @@ import { createFileRoute, Link } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { AlertTriangle, Bot, BotOff, ClipboardCheck, History, RotateCcw, Send, Sparkles } from 'lucide-react'
+import { AlertTriangle, Bot, BotOff, ClipboardCheck, FlaskConical, History, RotateCcw, Send, Sparkles } from 'lucide-react'
 import { requireSettingsRole } from '@/lib/authGuards'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -31,7 +31,9 @@ import { formatRailsError } from '@/lib/api'
 import { cn, formatDate, formatRelativeTime } from '@/lib/utils'
 import { useUserRole } from '@/stores/auth'
 import { AgendaSettings, RemindersSettings, UpcomingAppointments } from '@/components/ai-agent/AgendaSettings'
+import { EvalsCard } from '@/components/ai-agent/EvalsCard'
 import { KnowledgeCard } from '@/components/ai-agent/KnowledgeCard'
+import { RegressionCaseDialog } from '@/components/ai-agent/RegressionCaseDialog'
 import { LeadCriteriaCard } from '@/components/ai-agent/LeadCriteriaCard'
 import { ObjectionsCard } from '@/components/ai-agent/ObjectionsCard'
 import {
@@ -112,6 +114,7 @@ function AiAgentSettingsPage() {
             <PausedChatsCard config={config} canEdit={canEdit} />
             {canEdit && <TestChat disabled={!config.openaiConfigured} />}
             <ActivityCard />
+            <EvalsCard canRun={canEdit} />
             <ReviewQueueCard />
             <VersionsCard />
           </div>
@@ -809,6 +812,7 @@ function PilotMetrics({ metrics }: { metrics: AiAgentMetrics }) {
 function ReviewQueueCard() {
   const queryClient = useQueryClient()
   const [notes, setNotes] = useState<Record<string, string>>({})
+  const [regressionRunId, setRegressionRunId] = useState<string | null>(null)
   const { data: items = [], isLoading } = useQuery({
     queryKey: aiAgentQueryKeys.review(),
     queryFn: fetchAiAgentReview,
@@ -833,7 +837,8 @@ function ReviewQueueCard() {
         </CardTitle>
         <CardDescription>
           Lo que el asistente no supo responder y lo que los asesores calificaron mal. Revísalo cada semana: agrega la
-          respuesta a la información del negocio o a las preguntas frecuentes y márcalo como revisado.
+          respuesta a la información del negocio o a las preguntas frecuentes, agrégalo como caso de regresión para
+          que no se repita y márcalo como revisado.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -891,11 +896,21 @@ function ReviewQueueCard() {
                     Revisada
                   </Button>
                 </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2 text-xs"
+                  onClick={() => setRegressionRunId(item.id)}
+                >
+                  <FlaskConical className="mr-1.5 size-3.5" />
+                  Agregar como caso de regresión
+                </Button>
               </li>
             ))}
           </ul>
         )}
       </CardContent>
+      <RegressionCaseDialog runId={regressionRunId} onClose={() => setRegressionRunId(null)} />
     </Card>
   )
 }

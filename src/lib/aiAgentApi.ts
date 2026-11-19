@@ -12,6 +12,9 @@ export const aiAgentQueryKeys = {
   versions: () => ['aiAgent', getAuthQueryScope(), 'versions'] as const,
   version: (id: string) => ['aiAgent', getAuthQueryScope(), 'versions', id] as const,
   review: () => ['aiAgent', getAuthQueryScope(), 'review'] as const,
+  evals: () => ['aiAgent', getAuthQueryScope(), 'evals'] as const,
+  evalRun: (id: string) => ['aiAgent', getAuthQueryScope(), 'evals', id] as const,
+  evalCases: () => ['aiAgent', getAuthQueryScope(), 'evalCases'] as const,
 }
 
 export interface AiAgentConfig {
@@ -650,4 +653,148 @@ export async function setAppointmentOutcome(id: string, outcome: 'attended' | 'n
 
 export async function cancelAppointment(id: string): Promise<void> {
   await api.post(`/ai_agent/appointments/${id}/cancel`)
+}
+
+// ---- Pruebas con el modelo real y casos de regresión (RFC §13, §14 y §17) ----
+
+export type EvalRunStatus = 'queued' | 'running' | 'done' | 'error'
+
+export interface EvalCaseResult {
+  name: string
+  category: string
+  passed: boolean
+  attempts: number
+  passedAttempts: number
+  failures: string[]
+  reply: string
+  tools: string[]
+}
+
+export interface EvalRun {
+  id: string
+  status: EvalRunStatus
+  repeat: number
+  total: number
+  passed: number
+  failed: number
+  model: string | null
+  configVersion: number | null
+  error: string | null
+  userName: string | null
+  createdAt: string
+  finishedAt: string | null
+  results: EvalCaseResult[]
+}
+
+export function mapEvalRun(d: Record<string, unknown>): EvalRun {
+  return {
+    id: String(d.id),
+    status: (d.status as EvalRunStatus) ?? 'queued',
+    repeat: Number(d.repeat ?? 1),
+    total: Number(d.total ?? 0),
+    passed: Number(d.passed ?? 0),
+    failed: Number(d.failed ?? 0),
+    model: d.model != null ? String(d.model) : null,
+    configVersion: d.config_version != null ? Number(d.config_version) : null,
+    error: d.error != null ? String(d.error) : null,
+    userName: d.user_name != null ? String(d.user_name) : null,
+    createdAt: String(d.created_at ?? ''),
+    finishedAt: d.finished_at != null ? String(d.finished_at) : null,
+    results: ((d.results ?? []) as Record<string, unknown>[]).map((r) => ({
+      name: String(r.name ?? ''),
+      category: String(r.category ?? ''),
+      passed: r.passed === true,
+      attempts: Number(r.attempts ?? 1),
+      passedAttempts: Number(r.passed_attempts ?? (r.passed === true ? 1 : 0)),
+      failures: Array.isArray(r.failures) ? r.failures.map(String) : [],
+      reply: String(r.reply ?? ''),
+      tools: Array.isArray(r.tools) ? r.tools.map(String) : [],
+    })),
+  }
+}
+
+export async function fetchEvalRuns(): Promise<{ runs: EvalRun[]; cases: number; regressionCases: number }> {
+  const res = await api.get('/ai_agent/evals')
+  return {
+    runs: ((res.data.data ?? []) as Record<string, unknown>[]).map(mapEvalRun),
+    cases: Number(res.data.meta?.cases ?? 0),
+    regressionCases: Number(res.data.meta?.regression_cases ?? 0),
+  }
+}
+
+export async function fetchEvalRun(id: string): Promise<EvalRun> {
+  const res = await api.get(`/ai_agent/evals/${id}`)
+  return mapEvalRun(res.data.data ?? {})
+}
+
+export async function startEvalRun(repeat: number): Promise<EvalRun> {
+  const res = await api.post('/ai_agent/evals', { repeat })
+  return mapEvalRun(res.data.data ?? {})
+}
+
+export interface EvalExpect {
+  status?: 'replied' | 'handoff'
+  includes_any?: string[]
+  excludes?: string[]
+  tools?: string[]
+  no_tools?: string[]
+}
+
+export interface EvalCase {
+  id: string
+  name: string
+  notes: string | null
+  consent: boolean
+  messages: ChatTurn[]
+  expect: EvalExpect
+  createdAt: string
+  createdByName: string | null
+}
+
+export async function fetchEvalCases(): Promise<EvalCase[]> {
+  const res = await api.get('/ai_agent/eval_cases')
+  return ((res.data.data ?? []) as Record<string, unknown>[]).map((d) => ({
+    id: String(d.id),
+    name: String(d.name ?? ''),
+    notes: d.notes != null ? String(d.notes) : null,
+    consent: d.consent !== false,
+    messages: (d.messages ?? []) as ChatTurn[],
+    expect: (d.expect ?? {}) as EvalExpect,
+    createdAt: String(d.created_at ?? ''),
+    createdByName: d.created_by_name != null ? String(d.created_by_name) : null,
+  }))
+}
+
+export interface EvalCaseDraft {
+  name: string
+  consent: boolean
+  messages: ChatTurn[]
+  reply: string | null
+}
+
+/** Conversación de esa respuesta hasta la pregunta del cliente, anonimizada por el servidor. */
+export async function fetchEvalCaseDraft(runId: string): Promise<EvalCaseDraft> {
+  const res = await api.get('/ai_agent/eval_cases/draft', { params: { run_id: runId } })
+  const d = res.data.data ?? {}
+  return {
+    name: String(d.name ?? ''),
+    consent: d.consent !== false,
+    messages: (d.messages ?? []) as ChatTurn[],
+    reply: d.reply != null ? String(d.reply) : null,
+  }
+}
+
+export async function createEvalCase(body: {
+  name: string
+  notes?: string
+  consent: boolean
+  messages: ChatTurn[]
+  expect: EvalExpect
+  run_id?: string
+}): Promise<void> {
+  await api.post('/ai_agent/eval_cases', { eval_case: body })
+}
+
+export async function deleteEvalCase(id: string): Promise<void> {
+  await api.delete(`/ai_agent/eval_cases/${id}`)
 }

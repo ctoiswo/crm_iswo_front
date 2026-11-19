@@ -42,6 +42,9 @@ export interface AiAgentConfig {
   /** Responsable de las oportunidades que abre el asistente para leads sin dueño. */
   defaultOwnerId: string | null
   defaultOwnerName: string | null
+  /** Responsable de seguridad (RFC §16): recibe las alertas de incidentes. */
+  securityOwnerId: string | null
+  securityOwnerName: string | null
   /** Chats donde el asistente está en pausa (los atiende un asesor). */
   pausedChats: number
   /** Chats donde un asesor escribió en los últimos 7 días. */
@@ -126,6 +129,10 @@ export interface AiLimits {
   conversation_tokens: number
   /** Gasto del mes en USD; alerta al 80 % y al 100 % pasa los chats a asesores. */
   monthly_budget_usd: number
+  /** Respuestas por número por minuto (0 = sin límite); al pasarlo es un incidente (RFC §16). */
+  per_minute: number
+  /** Mensajes por minuto en todo el CRM desde los que se avisa de un pico (0 = no avisar). */
+  spike_per_minute: number
 }
 
 export interface AiReminderSettings {
@@ -176,6 +183,8 @@ export function mapConfig(d: Record<string, unknown>): AiAgentConfig {
     defaults: (d.defaults ?? { tone: '', sales_process: '', qualification: '', handoff_rules: '', privacy_notice: '' }) as AiAgentConfig['defaults'],
     defaultOwnerId: d.default_owner_id != null ? String(d.default_owner_id) : null,
     defaultOwnerName: d.default_owner_name != null ? String(d.default_owner_name) : null,
+    securityOwnerId: d.security_owner_id != null ? String(d.security_owner_id) : null,
+    securityOwnerName: d.security_owner_name != null ? String(d.security_owner_name) : null,
     pausedChats: Number(d.paused_chats ?? 0),
     humanChats: Number(d.human_chats ?? 0),
     calendar: d.calendar as AiCalendarSettings,
@@ -183,6 +192,8 @@ export function mapConfig(d: Record<string, unknown>): AiAgentConfig {
     limits: {
       conversation_tokens: Number((d.limits as Record<string, unknown> | undefined)?.conversation_tokens ?? 60000),
       monthly_budget_usd: Number((d.limits as Record<string, unknown> | undefined)?.monthly_budget_usd ?? 20),
+      per_minute: Number((d.limits as Record<string, unknown> | undefined)?.per_minute ?? 5),
+      spike_per_minute: Number((d.limits as Record<string, unknown> | undefined)?.spike_per_minute ?? 30),
     },
     objections: Array.isArray(d.objections)
       ? (d.objections as Record<string, unknown>[]).map((o) => ({
@@ -239,6 +250,7 @@ export async function fetchAiAgentConfig(): Promise<AiAgentConfig> {
 export type AiAgentInput = {
   enabled: boolean
   default_owner_id: string | null
+  security_owner_id: string | null
   assistant_name: string
   business_info: string
   faq: string

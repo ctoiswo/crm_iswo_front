@@ -46,11 +46,31 @@ export interface AiAgentConfig {
   reminders: AiReminderSettings
   /** Topes de costo; 0 = sin tope. */
   limits: AiLimits
+  /** Respuestas a objeciones (RFC §6); solo las aprobadas por dirección (§18) llegan al asistente. */
+  objections: AiObjection[]
   /** Hay calendario y cuenta de servicio de Google: el asistente puede agendar. */
   calendarActive: boolean
   googleConfigured: boolean
   /** Correo con el que se comparte el calendario de Google. */
   serviceAccountEmail: string | null
+}
+
+export interface AiObjection {
+  key: string
+  /** Lo que dice el cliente («Es caro»). */
+  trigger: string
+  response: string
+  /** Pregunta de reencuadre que hace después (opcional). */
+  reframe: string
+  /** Qué debe confirmar dirección antes de aprobarla (§18). */
+  validation_note: string
+  approved_at: string | null
+  approved_by_name: string | null
+}
+
+/** Lo que se envía al guardar: la aprobación la registra el servidor con quien guarda. */
+export type AiObjectionInput = Pick<AiObjection, 'key' | 'trigger' | 'response' | 'reframe' | 'validation_note'> & {
+  approved: boolean
 }
 
 export interface AiLimits {
@@ -111,6 +131,17 @@ export function mapConfig(d: Record<string, unknown>): AiAgentConfig {
       conversation_tokens: Number((d.limits as Record<string, unknown> | undefined)?.conversation_tokens ?? 60000),
       monthly_budget_usd: Number((d.limits as Record<string, unknown> | undefined)?.monthly_budget_usd ?? 20),
     },
+    objections: Array.isArray(d.objections)
+      ? (d.objections as Record<string, unknown>[]).map((o) => ({
+          key: String(o.key ?? ''),
+          trigger: String(o.trigger ?? ''),
+          response: String(o.response ?? ''),
+          reframe: String(o.reframe ?? ''),
+          validation_note: String(o.validation_note ?? ''),
+          approved_at: o.approved_at ? String(o.approved_at) : null,
+          approved_by_name: o.approved_by_name ? String(o.approved_by_name) : null,
+        }))
+      : [],
     calendarActive: d.calendar_active === true,
     googleConfigured: d.google_configured === true,
     serviceAccountEmail: d.service_account_email != null ? String(d.service_account_email) : null,
@@ -140,7 +171,11 @@ export type AiAgentInput = {
 
 /** changeReason: motivo del cambio de instrucciones; queda en el historial de versiones. */
 export async function updateAiAgentConfig(
-  body: Partial<AiAgentInput> & { calendar?: AiCalendarSettings; reminders?: AiReminderSettings },
+  body: Partial<AiAgentInput> & {
+    calendar?: AiCalendarSettings
+    reminders?: AiReminderSettings
+    objections?: AiObjectionInput[]
+  },
   options: { pauseHumanChats?: boolean; changeReason?: string } = {},
 ): Promise<{ config: AiAgentConfig; pausedNow: number }> {
   const res = await api.patch('/ai_agent', {
@@ -457,6 +492,7 @@ export const VERSION_FIELD_LABELS: Record<string, string> = {
   handoff_rules: 'Paso a asesor',
   privacy_notice: 'Aviso de autorización',
   consent_required: 'Pedir autorización',
+  objections: 'Objeciones aprobadas',
 }
 
 /** Costo aproximado en USD con precios de referencia de la línea «mini» (USD por millón de tokens). */

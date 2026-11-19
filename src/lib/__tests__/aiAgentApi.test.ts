@@ -17,6 +17,14 @@ describe('mapConfig', () => {
     expect(mapConfig({}).objections).toEqual([])
   })
 
+  it('lee los criterios de calificación y si comercial los validó', () => {
+    const c = mapConfig({
+      lead_criteria: { cold: 'Solo mira', warm: 'Tiene norma', hot: 'Auditoría', validated_at: '2026-11-19T10:00:00Z', validated_by_name: 'Ana' },
+    })
+    expect(c.leadCriteria).toEqual({ cold: 'Solo mira', warm: 'Tiene norma', hot: 'Auditoría', validated_at: '2026-11-19T10:00:00Z', validated_by_name: 'Ana' })
+    expect(mapConfig({}).leadCriteria.validated_at).toBeNull()
+  })
+
   it('lee las objeciones con su aprobación', () => {
     const c = mapConfig({
       objections: [

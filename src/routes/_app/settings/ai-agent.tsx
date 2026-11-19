@@ -34,6 +34,7 @@ import { AgendaSettings, RemindersSettings, UpcomingAppointments } from '@/compo
 import { EvalsCard } from '@/components/ai-agent/EvalsCard'
 import { KnowledgeCard } from '@/components/ai-agent/KnowledgeCard'
 import { RegressionCaseDialog } from '@/components/ai-agent/RegressionCaseDialog'
+import { WeeklyReviewCard } from '@/components/ai-agent/WeeklyReviewCard'
 import { LeadCriteriaCard } from '@/components/ai-agent/LeadCriteriaCard'
 import { ObjectionsCard } from '@/components/ai-agent/ObjectionsCard'
 import {
@@ -48,6 +49,8 @@ import {
   formatSeconds,
   markAiAgentRunReviewed,
   REVIEW_REASON_LABELS,
+  ERROR_CATEGORY_LABELS,
+  SEVERITY_LABELS,
   HANDOFF_TYPE_LABELS,
   setAllChatsPaused,
   testAiAgent,
@@ -116,6 +119,7 @@ function AiAgentSettingsPage() {
             <ActivityCard />
             <EvalsCard canRun={canEdit} />
             <ReviewQueueCard />
+            <WeeklyReviewCard />
             <VersionsCard />
           </div>
         </div>
@@ -860,6 +864,19 @@ function ReviewQueueCard() {
                       )}
                     >
                       {REVIEW_REASON_LABELS[item.reason]}
+                    </Badge>
+                  )}
+                  {item.errorCategory && (
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        'text-[10px]',
+                        item.errorSeverity === 'critica' && 'border-destructive/40 text-destructive',
+                        item.errorSeverity === 'alta' && 'border-amber-500/40 text-amber-700 dark:text-amber-300'
+                      )}
+                    >
+                      {ERROR_CATEGORY_LABELS[item.errorCategory] ?? item.errorCategory}
+                      {item.errorSeverity && ` · ${SEVERITY_LABELS[item.errorSeverity].toLowerCase()}`}
                     </Badge>
                   )}
                   <span>{formatDate(item.createdAt, 'dd MMM, h:mm a')}</span>

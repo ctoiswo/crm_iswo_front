@@ -149,11 +149,12 @@ export function ObjectionsCard({ config, canEdit }: { config: AiAgentConfig; can
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor={`objection-note-${i}`}>Qué debe confirmar dirección (opcional)</Label>
-                <Input
+                <Textarea
                   id={`objection-note-${i}`}
                   value={row.validation_note}
                   onChange={(e) => update(i, { validation_note: e.target.value })}
                   placeholder="Ej: que el número de módulos esté vigente"
+                  rows={2}
                   maxLength={500}
                   disabled={!canEdit}
                 />

@@ -50,12 +50,43 @@ export interface AiAgentConfig {
   objections: AiObjection[]
   /** Criterios de frío / tibio / caliente (RFC §7) y si comercial los validó. */
   leadCriteria: AiLeadCriteria
+  /** Base de conocimiento (RFC §10): responsable y, por apartado, fuente y validación. */
+  knowledge: AiKnowledge
   criteriaDefaults: Record<CriteriaLevel, string>
   /** Hay calendario y cuenta de servicio de Google: el asistente puede agendar. */
   calendarActive: boolean
   googleConfigured: boolean
   /** Correo con el que se comparte el calendario de Google. */
   serviceAccountEmail: string | null
+}
+
+export type KnowledgeSection = 'business_info' | 'faq' | 'sales_process'
+
+export const KNOWLEDGE_SECTIONS: { key: KnowledgeSection; label: string }[] = [
+  { key: 'business_info', label: 'Información del negocio' },
+  { key: 'faq', label: 'Preguntas frecuentes' },
+  { key: 'sales_process', label: 'Proceso comercial' },
+]
+
+export interface AiKnowledgeSection {
+  source: string
+  validated_at: string | null
+  validated_by_name: string | null
+  /** Nunca validado o validado hace más de reviewDays. */
+  stale: boolean
+}
+
+export interface AiKnowledge {
+  ownerId: string | null
+  ownerName: string | null
+  reviewDays: number
+  sections: Record<KnowledgeSection, AiKnowledgeSection>
+}
+
+export type AiKnowledgeInput = {
+  owner_id?: string | null
+  review_days?: number
+  sections?: Partial<Record<KnowledgeSection, { source: string; validated: boolean; revalidate?: boolean }>>
 }
 
 export type CriteriaLevel = 'cold' | 'warm' | 'hot'
@@ -165,6 +196,25 @@ export function mapConfig(d: Record<string, unknown>): AiAgentConfig {
         validated_by_name: c.validated_by_name ? String(c.validated_by_name) : null,
       }
     })(),
+    knowledge: (() => {
+      const k = (d.knowledge ?? {}) as Record<string, unknown>
+      const sections = (k.sections ?? {}) as Record<string, Record<string, unknown>>
+      const section = (key: KnowledgeSection): AiKnowledgeSection => {
+        const e = sections[key] ?? {}
+        return {
+          source: String(e.source ?? ''),
+          validated_at: e.validated_at ? String(e.validated_at) : null,
+          validated_by_name: e.validated_by_name ? String(e.validated_by_name) : null,
+          stale: e.stale !== false,
+        }
+      }
+      return {
+        ownerId: k.owner_id != null ? String(k.owner_id) : null,
+        ownerName: k.owner_name != null ? String(k.owner_name) : null,
+        reviewDays: Number(k.review_days ?? 90),
+        sections: { business_info: section('business_info'), faq: section('faq'), sales_process: section('sales_process') },
+      }
+    })(),
     criteriaDefaults: (d.criteria_defaults ?? { cold: '', warm: '', hot: '' }) as Record<CriteriaLevel, string>,
     calendarActive: d.calendar_active === true,
     googleConfigured: d.google_configured === true,
@@ -200,6 +250,7 @@ export async function updateAiAgentConfig(
     reminders?: AiReminderSettings
     objections?: AiObjectionInput[]
     lead_criteria?: Record<CriteriaLevel, string> & { validated: boolean }
+    knowledge?: AiKnowledgeInput
   },
   options: { pauseHumanChats?: boolean; changeReason?: string } = {},
 ): Promise<{ config: AiAgentConfig; pausedNow: number }> {
@@ -519,6 +570,7 @@ export const VERSION_FIELD_LABELS: Record<string, string> = {
   consent_required: 'Pedir autorización',
   objections: 'Objeciones aprobadas',
   lead_criteria: 'Criterios de calificación',
+  knowledge: 'Responsable y fuentes',
 }
 
 /** Costo aproximado en USD con precios de referencia de la línea «mini» (USD por millón de tokens). */

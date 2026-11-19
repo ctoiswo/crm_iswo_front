@@ -25,6 +25,20 @@ describe('mapConfig', () => {
     expect(mapConfig({}).leadCriteria.validated_at).toBeNull()
   })
 
+  it('lee responsable, fuente y validación de la base de conocimiento', () => {
+    const c = mapConfig({
+      knowledge: {
+        owner_id: 7,
+        owner_name: 'Ana',
+        review_days: 30,
+        sections: { business_info: { source: 'Brochure', validated_at: '2026-11-19T10:00:00Z', validated_by_name: 'Ana', stale: false } },
+      },
+    })
+    expect(c.knowledge).toMatchObject({ ownerId: '7', ownerName: 'Ana', reviewDays: 30 })
+    expect(c.knowledge.sections.business_info).toMatchObject({ source: 'Brochure', stale: false })
+    expect(c.knowledge.sections.faq).toEqual({ source: '', validated_at: null, validated_by_name: null, stale: true })
+  })
+
   it('lee las objeciones con su aprobación', () => {
     const c = mapConfig({
       objections: [

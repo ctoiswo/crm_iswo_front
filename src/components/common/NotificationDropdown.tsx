@@ -150,6 +150,10 @@ export function NotificationDropdown() {
       void navigate({ to: '/duplicates' })
       return
     }
+    if (n.type === 'ai_agent_security') {
+      void navigate({ to: '/settings/audit' })
+      return
+    }
     if (n.type === 'ai_agent_error' || n.type === 'ai_agent_budget') {
       void navigate({ to: '/settings/ai-agent' })
     }

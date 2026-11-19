@@ -84,6 +84,8 @@ export function formatAuditAction(action: string): string {
     logout: 'Cierre de sesión',
     'whatsapp.conversation_view': 'Abrió una conversación de WhatsApp',
     'ai_agent.injection_attempt': 'Asistente IA · intento de manipulación',
+    'ai_agent.rate_limit': 'Asistente IA · límite por minuto superado',
+    'ai_agent.traffic_spike': 'Asistente IA · pico de tráfico',
     'ai_agent.rate': 'Asistente IA · calificó una respuesta',
     'ai_agent.review': 'Asistente IA · revisó un pendiente',
   }

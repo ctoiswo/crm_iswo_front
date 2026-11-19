@@ -133,6 +133,7 @@ function ConfigForm({ config, canEdit }: { config: AiAgentConfig; canEdit: boole
   const toForm = (c: AiAgentConfig): AiAgentInput => ({
     enabled: c.enabled,
     default_owner_id: c.defaultOwnerId,
+    security_owner_id: c.securityOwnerId,
     assistant_name: c.assistantName,
     business_info: c.businessInfo,
     faq: c.faq,
@@ -264,6 +265,24 @@ function ConfigForm({ config, canEdit }: { config: AiAgentConfig; canEdit: boole
           </Select>
         </Field>
         <Field
+          label="Responsable de seguridad"
+          hint="Recibe en la campana los incidentes: intentos de manipulación, números que superan el límite por minuto y picos de tráfico. Sin elegir, les llegan a los administradores."
+        >
+          <Select
+            value={form.security_owner_id ?? NO_OWNER}
+            onValueChange={(v) => set('security_owner_id', v === NO_OWNER ? null : v)}
+            disabled={!canEdit}
+          >
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value={NO_OWNER}>Los administradores</SelectItem>
+              {staff.filter((u) => ['admin', 'manager'].includes(String(u.role))).map((u) => (
+                <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </Field>
+        <Field
           label="Números del piloto (opcional)"
           hint="Uno por línea. Si escribes números, el asistente solo les responde a ellos y el resto de chats sigue igual. Déjalo vacío para que responda a todos. Celulares de Colombia sin indicativo quedan como +57."
         >
@@ -299,6 +318,33 @@ function ConfigForm({ config, canEdit }: { config: AiAgentConfig; canEdit: boole
               step={1}
               value={form.limits.monthly_budget_usd}
               onChange={(e) => set('limits', { ...form.limits, monthly_budget_usd: Number(e.target.value) })}
+              disabled={!canEdit}
+            />
+          </Field>
+          <Field
+            label="Respuestas por minuto a un mismo número"
+            hint="Si un número escribe más rápido, el asistente deja de responderle un momento y avisa al responsable de seguridad. 0 = sin límite."
+          >
+            <Input
+              type="number"
+              min={0}
+              max={60}
+              step={1}
+              value={form.limits.per_minute ?? 5}
+              onChange={(e) => set('limits', { ...form.limits, per_minute: Number(e.target.value) })}
+              disabled={!canEdit}
+            />
+          </Field>
+          <Field
+            label="Aviso de pico de tráfico (mensajes por minuto)"
+            hint="Mensajes de WhatsApp por minuto en todo el CRM desde los que se avisa (una campaña grande o un ataque). El asistente sigue respondiendo. 0 = no avisar."
+          >
+            <Input
+              type="number"
+              min={0}
+              step={5}
+              value={form.limits.spike_per_minute ?? 30}
+              onChange={(e) => set('limits', { ...form.limits, spike_per_minute: Number(e.target.value) })}
               disabled={!canEdit}
             />
           </Field>

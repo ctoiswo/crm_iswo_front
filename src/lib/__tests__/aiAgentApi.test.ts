@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { blockedPriceSentence, formatSeconds, mapActivity, mapEvalRun, mapMessageAiRun, mapReviewItem, mapConfig, mapWeeklyReview } from '@/lib/aiAgentApi'
+import { blockedPriceSentence, formatSeconds, mapActivity, mapEvalRun, mapMessageAiRun, mapReviewItem, mapConfig, mapKeyRotation, mapWeeklyReview } from '@/lib/aiAgentApi'
 
 describe('mapConfig', () => {
   it('lee el proceso comercial y su texto por defecto', () => {
@@ -161,5 +161,13 @@ describe('categorías de error y revisión semanal (RFC §17)', () => {
     })
     expect(w).toMatchObject({ conversations: 4, handoffRate: 25, optOutRate: null })
     expect(w.sample[0]).toMatchObject({ contactId: '9', handoff: true, lastAt: null })
+  })
+})
+
+describe('rotación de claves (RFC §16)', () => {
+  it('lee fecha, responsable y estado; estado desconocido sin fecha', () => {
+    expect(mapKeyRotation({ key: 'openai', label: 'OpenAI', configured: true, rotated_on: '2026-01-10', due_on: '2027-01-10', status: 'due_soon' }))
+      .toMatchObject({ key: 'openai', configured: true, rotatedOn: '2026-01-10', status: 'due_soon' })
+    expect(mapKeyRotation({ key: 'x', status: 'raro' })).toMatchObject({ status: 'unknown', rotatedOn: null, configured: false })
   })
 })

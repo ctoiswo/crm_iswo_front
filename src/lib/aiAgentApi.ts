@@ -16,6 +16,7 @@ export const aiAgentQueryKeys = {
   evalRun: (id: string) => ['aiAgent', getAuthQueryScope(), 'evals', id] as const,
   evalCases: () => ['aiAgent', getAuthQueryScope(), 'evalCases'] as const,
   weeklyReview: () => ['aiAgent', getAuthQueryScope(), 'weeklyReview'] as const,
+  keyRotations: () => ['aiAgent', getAuthQueryScope(), 'keyRotations'] as const,
 }
 
 export interface AiAgentConfig {
@@ -923,4 +924,42 @@ export function mapWeeklyReview(d: Record<string, unknown>): WeeklyReview {
 export async function fetchWeeklyReview(): Promise<WeeklyReview> {
   const res = await api.get('/ai_agent/weekly_review')
   return mapWeeklyReview(res.data.data ?? {})
+}
+
+// ---- Rotación de claves (RFC §16) ----------------------------------------------
+
+export type KeyRotationStatus = 'ok' | 'due_soon' | 'overdue' | 'unknown'
+
+export interface KeyRotation {
+  key: string
+  label: string
+  configured: boolean
+  rotatedOn: string | null
+  rotatedByName: string | null
+  dueOn: string | null
+  status: KeyRotationStatus
+}
+
+export function mapKeyRotation(r: Record<string, unknown>): KeyRotation {
+  const str = (v: unknown) => (typeof v === 'string' && v ? v : null)
+  const status = str(r.status)
+  return {
+    key: String(r.key ?? ''),
+    label: String(r.label ?? r.key ?? ''),
+    configured: r.configured === true,
+    rotatedOn: str(r.rotated_on),
+    rotatedByName: str(r.rotated_by_name),
+    dueOn: str(r.due_on),
+    status: status === 'ok' || status === 'due_soon' || status === 'overdue' ? status : 'unknown',
+  }
+}
+
+export async function fetchKeyRotations(): Promise<KeyRotation[]> {
+  const res = await api.get('/ai_agent/key_rotations')
+  return ((res.data.data ?? []) as Record<string, unknown>[]).map(mapKeyRotation)
+}
+
+export async function recordKeyRotation(key: string, rotatedOn: string): Promise<KeyRotation[]> {
+  const res = await api.post('/ai_agent/key_rotations', { key, rotated_on: rotatedOn })
+  return ((res.data.data ?? []) as Record<string, unknown>[]).map(mapKeyRotation)
 }

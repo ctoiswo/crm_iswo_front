@@ -35,6 +35,7 @@ import { EvalsCard } from '@/components/ai-agent/EvalsCard'
 import { KnowledgeCard } from '@/components/ai-agent/KnowledgeCard'
 import { RegressionCaseDialog } from '@/components/ai-agent/RegressionCaseDialog'
 import { WeeklyReviewCard } from '@/components/ai-agent/WeeklyReviewCard'
+import { KeyRotationsCard } from '@/components/ai-agent/KeyRotationsCard'
 import { LeadCriteriaCard } from '@/components/ai-agent/LeadCriteriaCard'
 import { ObjectionsCard } from '@/components/ai-agent/ObjectionsCard'
 import {
@@ -111,6 +112,7 @@ function AiAgentSettingsPage() {
             <ObjectionsCard config={config} canEdit={canEdit} />
             <AgendaSettings config={config} canEdit={canEdit} />
             <RemindersSettings config={config} canEdit={canEdit} />
+            <KeyRotationsCard canEdit={canEdit} />
           </div>
           <div className="space-y-6">
             <UpcomingAppointments canCancel />

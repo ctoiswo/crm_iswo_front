@@ -48,11 +48,24 @@ export interface AiAgentConfig {
   limits: AiLimits
   /** Respuestas a objeciones (RFC §6); solo las aprobadas por dirección (§18) llegan al asistente. */
   objections: AiObjection[]
+  /** Criterios de frío / tibio / caliente (RFC §7) y si comercial los validó. */
+  leadCriteria: AiLeadCriteria
+  criteriaDefaults: Record<CriteriaLevel, string>
   /** Hay calendario y cuenta de servicio de Google: el asistente puede agendar. */
   calendarActive: boolean
   googleConfigured: boolean
   /** Correo con el que se comparte el calendario de Google. */
   serviceAccountEmail: string | null
+}
+
+export type CriteriaLevel = 'cold' | 'warm' | 'hot'
+
+export interface AiLeadCriteria {
+  cold: string
+  warm: string
+  hot: string
+  validated_at: string | null
+  validated_by_name: string | null
 }
 
 export interface AiObjection {
@@ -142,6 +155,17 @@ export function mapConfig(d: Record<string, unknown>): AiAgentConfig {
           approved_by_name: o.approved_by_name ? String(o.approved_by_name) : null,
         }))
       : [],
+    leadCriteria: (() => {
+      const c = (d.lead_criteria ?? {}) as Record<string, unknown>
+      return {
+        cold: String(c.cold ?? ''),
+        warm: String(c.warm ?? ''),
+        hot: String(c.hot ?? ''),
+        validated_at: c.validated_at ? String(c.validated_at) : null,
+        validated_by_name: c.validated_by_name ? String(c.validated_by_name) : null,
+      }
+    })(),
+    criteriaDefaults: (d.criteria_defaults ?? { cold: '', warm: '', hot: '' }) as Record<CriteriaLevel, string>,
     calendarActive: d.calendar_active === true,
     googleConfigured: d.google_configured === true,
     serviceAccountEmail: d.service_account_email != null ? String(d.service_account_email) : null,
@@ -175,6 +199,7 @@ export async function updateAiAgentConfig(
     calendar?: AiCalendarSettings
     reminders?: AiReminderSettings
     objections?: AiObjectionInput[]
+    lead_criteria?: Record<CriteriaLevel, string> & { validated: boolean }
   },
   options: { pauseHumanChats?: boolean; changeReason?: string } = {},
 ): Promise<{ config: AiAgentConfig; pausedNow: number }> {
@@ -493,6 +518,7 @@ export const VERSION_FIELD_LABELS: Record<string, string> = {
   privacy_notice: 'Aviso de autorización',
   consent_required: 'Pedir autorización',
   objections: 'Objeciones aprobadas',
+  lead_criteria: 'Criterios de calificación',
 }
 
 /** Costo aproximado en USD con precios de referencia de la línea «mini» (USD por millón de tokens). */

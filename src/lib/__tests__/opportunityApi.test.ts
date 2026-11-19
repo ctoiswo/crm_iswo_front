@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   jsonApiPrimaryList,
+  mapOpportunityAiProfile,
   jsonApiPrimaryOne,
   jsonApiIncluded,
   mapUserResource,
@@ -388,5 +389,18 @@ describe('buildOpportunityExportFilters', () => {
     expect(
       filters.title_or_contact_first_name_or_contact_last_name_or_contact_company_name_or_contact_email_or_contact_phone_e164_or_contact_phone_normalized_cont,
     ).toBeUndefined()
+  })
+})
+
+describe('mapOpportunityAiProfile (RFC §11)', () => {
+  it('lee lo que sabe el asistente y deja null lo vacío', () => {
+    const p = mapOpportunityAiProfile({
+      summary: 'ISO 9001', last_intent: 'Pedir cotización', decision_date: '2027-01-15', need: '',
+      referrer: { id: 7, name: 'María' }, campaign: { name: 'Certifícate', ad_id: '120' },
+    })
+    expect(p).toMatchObject({ summary: 'ISO 9001', lastIntent: 'Pedir cotización', need: null,
+      referrer: { id: '7', name: 'María' }, campaign: { name: 'Certifícate', adId: '120' } })
+    expect(mapOpportunityAiProfile(undefined)).toBeUndefined()
+    expect(mapOpportunityAiProfile({ referrer: null, campaign: null })).toMatchObject({ referrer: null, campaign: null })
   })
 })

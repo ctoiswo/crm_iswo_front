@@ -45,6 +45,19 @@ export interface Tenant {
 export type OpportunityStatus = 'new_lead' | 'contacted' | 'qualified' | 'proposal' | 'won' | 'lost'
 export type OpportunityTemperature = 'cold' | 'warm' | 'hot'
 
+export interface OpportunityAiProfile {
+  classifiedAt: string | null
+  summary: string | null
+  need: string | null
+  urgency: string | null
+  budget: string | null
+  decisionMaker: string | null
+  lastIntent: string | null
+  decisionDate: string | null
+  referrer: { id: string; name: string } | null
+  campaign: { name: string; url?: string; adId?: string } | null
+}
+
 export interface Opportunity {
   id: string
   title?: string
@@ -78,6 +91,8 @@ export interface Opportunity {
   expected_close_on?: string
   reminder_due_at?: string
   custom_fields?: Record<string, unknown>
+  /** Lo que sabe el asistente IA del lead (RFC §11); solo en el detalle. */
+  ai_profile?: OpportunityAiProfile
   from_network?: boolean
   /** RFC §6.3 — consultor: solo lectura en opps de la red */
   network_read_only?: boolean

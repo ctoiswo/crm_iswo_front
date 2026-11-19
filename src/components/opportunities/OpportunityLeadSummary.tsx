@@ -1,5 +1,6 @@
 import { Link } from '@tanstack/react-router'
 import {
+  Bot,
   Building2,
   Calendar,
   ExternalLink,
@@ -174,6 +175,8 @@ export function OpportunityLeadSummary({
         </p>
       </div>
 
+      <AiProfileBlock profile={opportunity.ai_profile} />
+
       {hasLanding && (
         <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3 space-y-3">
           <div className="flex items-center gap-2">
@@ -225,6 +228,66 @@ export function OpportunityLeadSummary({
           )}
         </div>
       )}
+    </div>
+  )
+}
+
+/** Lo que sabe el asistente IA del lead (RFC-001 v2 §11). */
+function AiProfileBlock({ profile }: { profile?: Opportunity['ai_profile'] }) {
+  if (!profile) return null
+  const rows: [string, string | null][] = [
+    ['Resumen', profile.summary],
+    ['Última intención', profile.lastIntent],
+    ['Necesidad', profile.need],
+    ['Urgencia', profile.urgency],
+    ['Presupuesto', profile.budget],
+    ['Quién decide', profile.decisionMaker],
+    ['Fecha de decisión', profile.decisionDate ? formatDate(profile.decisionDate, "d 'de' MMMM yyyy") : null],
+  ]
+  const filled = rows.filter(([, v]) => v)
+  if (!filled.length && !profile.referrer && !profile.campaign) return null
+
+  return (
+    <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 space-y-2">
+      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+        <Bot className="size-3.5" />
+        Lo que sabe el asistente
+        {profile.classifiedAt && (
+          <span className="normal-case tracking-normal font-normal">· {formatRelativeTime(profile.classifiedAt)}</span>
+        )}
+      </p>
+      <dl className="grid gap-1.5 text-xs">
+        {filled.map(([label, value]) => (
+          <div key={label} className="grid grid-cols-[7.5rem_1fr] gap-2">
+            <dt className="text-muted-foreground">{label}</dt>
+            <dd className="font-medium break-words">{value}</dd>
+          </div>
+        ))}
+        {profile.referrer && (
+          <div className="grid grid-cols-[7.5rem_1fr] gap-2">
+            <dt className="text-muted-foreground">Recomendado por</dt>
+            <dd className="font-medium">
+              <Link to="/contacts" search={{ selected: profile.referrer.id }} className="text-primary hover:underline">
+                {profile.referrer.name}
+              </Link>
+            </dd>
+          </div>
+        )}
+        {profile.campaign && (
+          <div className="grid grid-cols-[7.5rem_1fr] gap-2">
+            <dt className="text-muted-foreground">Campaña</dt>
+            <dd className="font-medium break-words">
+              {profile.campaign.url ? (
+                <a href={profile.campaign.url} target="_blank" rel="noreferrer" className="text-primary hover:underline">
+                  {profile.campaign.name}
+                </a>
+              ) : (
+                profile.campaign.name
+              )}
+            </dd>
+          </div>
+        )}
+      </dl>
     </div>
   )
 }

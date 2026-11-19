@@ -300,10 +300,34 @@ export function mapOpportunityResource(resource: JsonApiResource, included: Json
     custom_fields: a.custom_fields != null && typeof a.custom_fields === 'object'
       ? (a.custom_fields as Record<string, unknown>)
       : undefined,
+    ai_profile: mapOpportunityAiProfile(a.ai_profile),
     from_network: a.from_network === true,
     network_read_only: a.network_read_only === true,
     created_at: String(a.created_at ?? ''),
     updated_at: String(a.updated_at ?? ''),
+  }
+}
+
+export function mapOpportunityAiProfile(raw: unknown): import('@/types').OpportunityAiProfile | undefined {
+  if (raw == null || typeof raw !== 'object') return undefined
+  const p = raw as Record<string, unknown>
+  const str = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : null)
+  const ref = p.referrer as Record<string, unknown> | null | undefined
+  const camp = p.campaign as Record<string, unknown> | null | undefined
+  return {
+    classifiedAt: str(p.classified_at),
+    summary: str(p.summary),
+    need: str(p.need),
+    urgency: str(p.urgency),
+    budget: str(p.budget),
+    decisionMaker: str(p.decision_maker),
+    lastIntent: str(p.last_intent),
+    decisionDate: str(p.decision_date),
+    referrer: ref && ref.id != null ? { id: String(ref.id), name: String(ref.name ?? 'Contacto') } : null,
+    campaign:
+      camp && str(camp.name)
+        ? { name: str(camp.name) as string, url: str(camp.url) ?? undefined, adId: str(camp.ad_id) ?? undefined }
+        : null,
   }
 }
 

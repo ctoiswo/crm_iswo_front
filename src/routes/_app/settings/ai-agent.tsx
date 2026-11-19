@@ -31,6 +31,7 @@ import { formatRailsError } from '@/lib/api'
 import { cn, formatDate, formatRelativeTime } from '@/lib/utils'
 import { useUserRole } from '@/stores/auth'
 import { AgendaSettings, RemindersSettings, UpcomingAppointments } from '@/components/ai-agent/AgendaSettings'
+import { ObjectionsCard } from '@/components/ai-agent/ObjectionsCard'
 import {
   aiAgentQueryKeys,
   blockedPriceSentence,
@@ -98,6 +99,7 @@ function AiAgentSettingsPage() {
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
           <div className="min-w-0 space-y-6">
             <ConfigForm config={config} canEdit={canEdit} />
+            <ObjectionsCard config={config} canEdit={canEdit} />
             <AgendaSettings config={config} canEdit={canEdit} />
             <RemindersSettings config={config} canEdit={canEdit} />
           </div>

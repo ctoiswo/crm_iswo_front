@@ -14,6 +14,18 @@ describe('mapConfig', () => {
 
   it('sin proceso comercial (API anterior) queda vacío', () => {
     expect(mapConfig({}).salesProcess).toBe('')
+    expect(mapConfig({}).objections).toEqual([])
+  })
+
+  it('lee las objeciones con su aprobación', () => {
+    const c = mapConfig({
+      objections: [
+        { key: 'caro', trigger: 'Es caro', response: 'Incluye todo', approved_at: '2026-11-19T10:00:00Z', approved_by_name: 'Frank' },
+        { key: 'excel', trigger: 'Ya usamos Excel', response: 'Migramos' },
+      ],
+    })
+    expect(c.objections[0]).toMatchObject({ key: 'caro', approved_by_name: 'Frank', reframe: '', validation_note: '' })
+    expect(c.objections[1].approved_at).toBeNull()
   })
 })
 

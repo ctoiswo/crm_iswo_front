@@ -433,8 +433,41 @@ export type ContactImportResult = {
   created_count: number
   skipped_count: number
   errors: Array<{ row: number; message: string }>
-  /** Filas importadas con ajuste (p.ej. etapa desconocida → primera etapa). */
+  /** Filas importadas con ajuste (etapa desconocida, celular inválido, valor que quedó en Notas…). */
   warnings?: Array<{ row: number; message: string }>
+  /** Campos del contacto creados desde columnas del archivo («Crear campo nuevo»). */
+  created_fields?: string[]
+}
+
+/** Destino de una columna: campo estándar, `contact:<key>`, `opportunity:<key>`, `new_field`, `notes` o `ignore`. */
+export type ContactImportTarget = { value: string; label: string; group: string }
+
+export type ContactImportColumn = {
+  index: number
+  header: string
+  samples: string[]
+  suggested: string
+}
+
+export type ContactImportPreview = {
+  filename: string
+  sheet_name: string | null
+  header_row: number | null
+  total_rows: number
+  max_rows: number
+  columns: ContactImportColumn[]
+  targets: ContactImportTarget[]
+  can_create_fields: boolean
+}
+
+/** Índice de columna → destino. */
+export type ContactImportMapping = Record<string, string>
+
+export async function previewContactImport(file: File): Promise<ContactImportPreview> {
+  const formData = new FormData()
+  formData.append('file', file)
+  const response = await api.post<{ data: ContactImportPreview }>('/contacts/import_preview', formData)
+  return response.data.data
 }
 
 export async function downloadContactImportTemplate(): Promise<void> {
@@ -446,9 +479,13 @@ export async function downloadContactImportTemplate(): Promise<void> {
   )
 }
 
-export async function importContactsFromFile(file: File): Promise<ContactImportResult> {
+export async function importContactsFromFile(
+  file: File,
+  mapping?: ContactImportMapping,
+): Promise<ContactImportResult> {
   const formData = new FormData()
   formData.append('file', file)
+  if (mapping) formData.append('mapping', JSON.stringify(mapping))
   const response = await api.post<{ data: ContactImportResult }>('/contacts/import', formData)
   return response.data.data
 }

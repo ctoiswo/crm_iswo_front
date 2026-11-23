@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { blockedPriceSentence, formatSeconds, mapActivity, mapEvalRun, mapMessageAiRun, mapReviewItem, mapConfig, mapKeyRotation, mapWeeklyReview } from '@/lib/aiAgentApi'
+import { blockedClaimSentence, blockedPriceSentence, formatSeconds, mapActivity, mapEvalRun, mapMessageAiRun, mapReviewItem, mapConfig, mapKeyRotation, mapWeeklyReview } from '@/lib/aiAgentApi'
 
 describe('mapConfig', () => {
   it('lee el proceso comercial y su texto por defecto', () => {
@@ -89,6 +89,18 @@ describe('blockedPriceSentence', () => {
     ]
     expect(blockedPriceSentence(calls)).toBe('Cuesta $1.500.000.')
     expect(blockedPriceSentence([])).toBeNull()
+  })
+})
+
+describe('blockedClaimSentence', () => {
+  it('devuelve la frase que bloqueó el filtro de frases absolutas', () => {
+    const calls = [
+      { name: 'filtro_frases', arguments: { frase: 'Está garantizado.', expresiones: ['garantizado'] }, result: '' },
+      { name: 'pasar_a_asesor', arguments: { tipo: 'frase_no_aprobada' }, result: '' },
+    ]
+    expect(blockedClaimSentence(calls)).toBe('Está garantizado.')
+    expect(blockedPriceSentence(calls)).toBeNull()
+    expect(blockedClaimSentence([])).toBeNull()
   })
 })
 

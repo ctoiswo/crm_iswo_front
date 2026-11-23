@@ -456,6 +456,7 @@ export const HANDOFF_TYPE_LABELS: Record<string, string> = {
   multimedia: 'Audio o archivo',
   falla_ia: 'Falla del asistente',
   precio_no_aprobado: 'Precio no aprobado',
+  frase_no_aprobada: 'Frase no aprobada',
   tope_conversacion: 'Tope de la conversación',
   tope_mensual: 'Tope de costo del mes',
 }
@@ -463,6 +464,12 @@ export const HANDOFF_TYPE_LABELS: Record<string, string> = {
 /** Frase que el filtro de precios no dejó enviar, si la hubo. */
 export function blockedPriceSentence(calls: AiToolCall[]): string | null {
   const call = calls.find((c) => c.name === 'filtro_precios')
+  return call && typeof call.arguments.frase === 'string' ? call.arguments.frase : null
+}
+
+/** Frase absoluta no aprobada («garantizado», «ilimitado»…) que el filtro no dejó enviar. */
+export function blockedClaimSentence(calls: AiToolCall[]): string | null {
+  const call = calls.find((c) => c.name === 'filtro_frases')
   return call && typeof call.arguments.frase === 'string' ? call.arguments.frase : null
 }
 
@@ -665,6 +672,7 @@ export const TOOL_LABELS: Record<string, string> = {
   reprogramar_cita: 'Reprogramó la cita',
   cancelar_cita: 'Canceló la cita',
   filtro_precios: 'Bloqueó un precio no aprobado',
+  filtro_frases: 'Bloqueó una frase no aprobada',
   datos_sensibles: 'Ocultó datos sensibles al modelo',
   intento_manipulacion: 'Intento de manipulación (registrado)',
 }

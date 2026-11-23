@@ -37,7 +37,7 @@ const DAYS = [
   { value: 0, label: 'Dom' },
 ]
 
-const DURATIONS = [15, 30, 45, 60, 90, 120]
+const DURATIONS = [15, 30, 45, 50, 60, 90, 120]
 
 /**
  * Agenda del asistente (fase 2): Google Calendar compartido con la cuenta de

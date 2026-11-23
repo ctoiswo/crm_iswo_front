@@ -41,6 +41,7 @@ import { ObjectionsCard } from '@/components/ai-agent/ObjectionsCard'
 import {
   aiAgentQueryKeys,
   blockedPriceSentence,
+  blockedClaimSentence,
   estimateCostUsd,
   fetchAiAgentActivity,
   fetchAiAgentConfig,
@@ -777,6 +778,11 @@ function ActivityCard() {
                 {blockedPriceSentence(r.toolCalls) && (
                   <p className="text-xs text-amber-700 dark:text-amber-300">
                     No se envió (precio no aprobado): «{blockedPriceSentence(r.toolCalls)}»
+                  </p>
+                )}
+                {blockedClaimSentence(r.toolCalls) && (
+                  <p className="text-xs text-amber-700 dark:text-amber-300">
+                    No se envió (frase no aprobada): «{blockedClaimSentence(r.toolCalls)}»
                   </p>
                 )}
                 <p className="text-[11px] text-muted-foreground">

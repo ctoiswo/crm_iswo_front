@@ -9,6 +9,7 @@ import { useMutation } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Eye, EyeOff } from 'lucide-react'
 import { TenantLogoMark } from '@/components/brand/TenantLogoMark'
+import { CrmIswoLogo } from '@/components/brand/CrmIswoLogo'
 import { resolveTenantBrand } from '@/lib/tenantBrand'
 import api, { formatRailsError } from '@/lib/api'
 import { clearSessionQueryCache, queryClient } from '@/lib/queryClient'
@@ -222,12 +223,23 @@ function LoginPage() {
           />
         )}
         <CardHeader className="text-center">
-          <div className="mx-auto mb-4 flex justify-center">
-            <TenantLogoMark slug={previewSlug} size="lg" showLabel />
-          </div>
-          <CardTitle className="text-2xl">
-            {previewBrand?.label ?? import.meta.env.VITE_APP_NAME ?? 'CRM ISWO'}
-          </CardTitle>
+          {previewBrand?.slug === 'iswo' ? (
+            <>
+              <div className="mx-auto mb-2 flex justify-center">
+                <CrmIswoLogo className="h-20" />
+              </div>
+              <CardTitle className="sr-only">CRM ISWO</CardTitle>
+            </>
+          ) : (
+            <>
+              <div className="mx-auto mb-4 flex justify-center">
+                <TenantLogoMark slug={previewSlug} size="lg" showLabel />
+              </div>
+              <CardTitle className="text-2xl">
+                {previewBrand?.label ?? import.meta.env.VITE_APP_NAME ?? 'CRM ISWO'}
+              </CardTitle>
+            </>
+          )}
           <CardDescription>
             {showTenantPicker
               ? previewBrand

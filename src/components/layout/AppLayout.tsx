@@ -14,7 +14,8 @@ import {
   MoreHorizontal,
 } from 'lucide-react'
 import { TenantLogoMark } from '@/components/brand/TenantLogoMark'
-import { resolveKnownBrandSlug } from '@/lib/tenantBrand'
+import { isIswoTenant, resolveKnownBrandSlug } from '@/lib/tenantBrand'
+import { CrmIswoLogo } from '@/components/brand/CrmIswoLogo'
 import { useTenant, useUser } from '@/stores/auth'
 import { useTheme } from '@/components/common/ThemeProvider'
 import {
@@ -159,6 +160,9 @@ export function AppLayout({ children }: AppLayoutProps) {
     [user?.role, tenant],
   )
   const platformTenant = sidebar.isPlatform
+  // Tenant iswo: solo el logo del producto, sin escudo ni nombre. Los demás
+  // tenants (clientes) conservan su logo y nombre.
+  const showCrmIswoLogo = !platformTenant && isIswoTenant(tenant)
 
   const mobileNavItems = useMemo(() => {
     if (platformTenant) {
@@ -256,7 +260,9 @@ export function AppLayout({ children }: AppLayoutProps) {
             className="flex min-w-0 flex-1 items-center gap-2 rounded-md outline-none ring-sidebar-ring focus-visible:ring-2"
             onClick={() => setSidebarOpen(false)}
           >
-          {tenant?.logo_url && !logoBroken ? (
+          {showCrmIswoLogo ? (
+            <CrmIswoLogo className="h-9" />
+          ) : tenant?.logo_url && !logoBroken ? (
             <img
               src={tenant.logo_url}
               alt={tenant.name}
@@ -273,9 +279,11 @@ export function AppLayout({ children }: AppLayoutProps) {
             </div>
           )}
           <div className="min-w-0 flex-1">
-            <span className="block font-semibold text-sidebar-foreground truncate">
-              {tenant?.name || 'CRM ISWO'}
-            </span>
+            {!showCrmIswoLogo && (
+              <span className="block font-semibold text-sidebar-foreground truncate">
+                {tenant?.name || 'CRM ISWO'}
+              </span>
+            )}
             {platformTenant && (
               <span className="block text-[10px] font-medium uppercase tracking-wider text-muted-foreground truncate">
                 Consola de plataforma

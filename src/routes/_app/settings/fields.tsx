@@ -82,11 +82,10 @@ function FieldDialog({
   onSave: (form: FieldForm) => void
   saving: boolean
 }) {
+  // El padre monta el diálogo con `key` por apertura, así que `initial` llega
+  // siempre con los datos del campo que se edita (o vacío si es nuevo).
   const [form, setForm] = useState<FieldForm>(initial)
   const set = (k: keyof FieldForm, v: unknown) => setForm((f) => ({ ...f, [k as string]: v }))
-
-  // Sync when dialog opens with new initial
-  useState(() => { setForm(initial) })
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -358,6 +357,7 @@ function FieldsSettingsPage() {
       )}
 
       <FieldDialog
+        key={`${editing?.id ?? 'new'}-${dialogOpen}`}
         open={dialogOpen}
         onOpenChange={(v) => { setDialogOpen(v); if (!v) setEditing(null) }}
         initial={initialForm}

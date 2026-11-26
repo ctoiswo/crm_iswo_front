@@ -80,26 +80,52 @@ import {
   getCompanyLabel,
   type ContactSegment,
   type ContactWhatsappConsent,
+  type ContactOpportunityStatus,
+  OPPORTUNITY_STATUS_FILTER_LABELS,
   WHATSAPP_CONSENT_LABELS,
   type ContactSummary,
 } from '@/lib/contactApi'
-import { jsonApiPrimaryList, mapUserResource } from '@/lib/opportunityApi'
+import { jsonApiPrimaryList, mapPipelineResource, mapUserResource } from '@/lib/opportunityApi'
 import { getAuthQueryScope, invalidateContactsQueries, queryKeys } from '@/lib/queryClient'
 import { tenantHasModule } from '@/lib/tenantModules'
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
+  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import type { Pipeline } from '@/types'
 
 const contactsSearchSchema = z.object({
   selected: z.string().optional(),
   owner: z.string().optional(),
   segment: z.enum(['clients', 'prospects', 'hot_leads', 'stale']).optional(),
   consent: z.enum(['confirmed', 'opted_out', 'unconfirmed', 'none']).optional(),
+  /** Filtro «Oportunidades»: open|won|lost|none o `stage-<id>` (etapa del pipeline). */
+  opp: z.string().optional(),
 })
+
+const OPP_STAGE_PREFIX = 'stage-'
+
+/** Traduce el parámetro `opp` de la URL a los filtros del API de contactos. */
+function parseOpportunityFilter(opp: string | undefined): {
+  opportunity_status?: ContactOpportunityStatus
+  pipeline_stage_id?: string
+} {
+  if (!opp) return {}
+  if (opp.startsWith(OPP_STAGE_PREFIX)) {
+    const id = opp.slice(OPP_STAGE_PREFIX.length)
+    return id ? { pipeline_stage_id: id } : {}
+  }
+  if (opp in OPPORTUNITY_STATUS_FILTER_LABELS) {
+    return { opportunity_status: opp as ContactOpportunityStatus }
+  }
+  return {}
+}
 
 export const Route = createFileRoute('/_app/contacts')({
   validateSearch: contactsSearchSchema,
@@ -165,7 +191,7 @@ function ContactsPage() {
   useEffect(() => {
     setCurrentPage(1)
     setCompanyPage(1)
-  }, [debouncedQ, searchFromUrl.owner, searchFromUrl.segment, searchFromUrl.consent])
+  }, [debouncedQ, searchFromUrl.owner, searchFromUrl.segment, searchFromUrl.consent, searchFromUrl.opp])
 
   const { data: contactStats, isLoading: statsLoading } = useQuery({
     queryKey: queryKeys.contacts.stats(authScope),
@@ -187,6 +213,50 @@ function ContactsPage() {
     staleTime: 60_000,
   })
 
+  // Etapas para el filtro «Oportunidades» (misma caché que el resto de la app).
+  const { data: pipelines = [] } = useQuery({
+    queryKey: queryKeys.pipelines.all,
+    queryFn: async () => {
+      const res = await api.get('/pipelines')
+      return jsonApiPrimaryList(res.data).filter((r) => r.id).map(mapPipelineResource)
+    },
+    enabled: Boolean(authScope) && hasContactsModule,
+    staleTime: 60_000,
+  })
+
+  // Solo etapas abiertas: ganada/perdida ya están en «Ganadas»/«Perdidas».
+  const stageFilterGroups = useMemo(
+    () =>
+      (pipelines as Pipeline[])
+        .filter((p) => p.active)
+        .map((p) => ({
+          id: p.id,
+          name: p.name,
+          stages: [...p.stages]
+            .filter((s) => !s.is_closed_won && !s.is_closed_lost)
+            .sort((a, b) => a.position - b.position),
+        }))
+        .filter((p) => p.stages.length > 0),
+    [pipelines],
+  )
+  const showPipelineNames = stageFilterGroups.length > 1
+
+  const opportunityFilter = useMemo(() => parseOpportunityFilter(searchFromUrl.opp), [searchFromUrl.opp])
+
+  const opportunityFilterLabel = useMemo(() => {
+    if (opportunityFilter.opportunity_status) {
+      return `Oportunidades ${OPPORTUNITY_STATUS_FILTER_LABELS[opportunityFilter.opportunity_status].toLowerCase()}`
+    }
+    if (opportunityFilter.pipeline_stage_id) {
+      for (const group of stageFilterGroups) {
+        const stage = group.stages.find((s) => s.id === opportunityFilter.pipeline_stage_id)
+        if (stage) return `Oportunidades en etapa: ${showPipelineNames ? `${group.name} · ` : ''}${stage.name}`
+      }
+      return 'Oportunidades en la etapa elegida'
+    }
+    return null
+  }, [opportunityFilter, stageFilterGroups, showPipelineNames])
+
   const listFiltersPerson = useMemo(
     () => ({
       q: debouncedQ.length >= 2 ? debouncedQ : undefined,
@@ -194,10 +264,11 @@ function ContactsPage() {
       owner_id: searchFromUrl.owner,
       segment: searchFromUrl.segment,
       whatsapp_consent: searchFromUrl.consent,
+      ...opportunityFilter,
       page: currentPage,
       items: pageSize,
     }),
-    [debouncedQ, searchFromUrl.owner, searchFromUrl.segment, searchFromUrl.consent, currentPage],
+    [debouncedQ, searchFromUrl.owner, searchFromUrl.segment, searchFromUrl.consent, opportunityFilter, currentPage],
   )
 
   const listFiltersCompany = useMemo(
@@ -207,10 +278,11 @@ function ContactsPage() {
       owner_id: searchFromUrl.owner,
       segment: searchFromUrl.segment,
       whatsapp_consent: searchFromUrl.consent,
+      ...opportunityFilter,
       page: companyPage,
       items: pageSize,
     }),
-    [debouncedQ, searchFromUrl.owner, searchFromUrl.segment, searchFromUrl.consent, companyPage],
+    [debouncedQ, searchFromUrl.owner, searchFromUrl.segment, searchFromUrl.consent, opportunityFilter, companyPage],
   )
 
   const handleSegmentChange = (segment: ContactSegment | undefined) => {
@@ -421,6 +493,8 @@ function ContactsPage() {
         owner_id: listFiltersPerson.owner_id,
         segment: listFiltersPerson.segment,
         whatsapp_consent: listFiltersPerson.whatsapp_consent,
+        opportunity_status: listFiltersPerson.opportunity_status,
+        pipeline_stage_id: listFiltersPerson.pipeline_stage_id,
       })
       const withoutOptIn = all.filter((c) => !c.whatsappOptedIn && !c.whatsappOptedOut).map((c) => c.id)
       if (withoutOptIn.length === 0) {
@@ -529,6 +603,19 @@ function ContactsPage() {
         </p>
       )}
 
+      {opportunityFilterLabel && (
+        <p className="text-sm text-muted-foreground -mt-4">
+          Filtrando por: <span className="font-medium text-foreground">{opportunityFilterLabel}</span>
+          <button
+            type="button"
+            className="ml-2 text-primary hover:underline"
+            onClick={() => navigate({ search: (prev) => ({ ...prev, opp: undefined }) })}
+          >
+            Quitar filtro
+          </button>
+        </p>
+      )}
+
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'contacts' | 'companies')}>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -544,6 +631,44 @@ function ContactsPage() {
           </TabsList>
 
           <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+            <Select
+              value={searchFromUrl.opp ?? '__all__'}
+              onValueChange={(v) =>
+                navigate({ search: (prev) => ({ ...prev, opp: v === '__all__' ? undefined : v }) })
+              }
+            >
+              <SelectTrigger
+                className="h-9 w-full min-w-0 text-sm sm:w-[210px] [&>span]:truncate"
+                aria-label="Filtrar por oportunidades"
+              >
+                <SelectValue placeholder="Oportunidades" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all__">Oportunidades: todas</SelectItem>
+                <SelectSeparator />
+                <SelectGroup>
+                  <SelectLabel>Estado</SelectLabel>
+                  {(Object.keys(OPPORTUNITY_STATUS_FILTER_LABELS) as ContactOpportunityStatus[]).map((key) => (
+                    <SelectItem key={key} value={key}>
+                      {OPPORTUNITY_STATUS_FILTER_LABELS[key]}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+                {stageFilterGroups.map((group) => (
+                  <SelectGroup key={group.id}>
+                    <SelectSeparator />
+                    <SelectLabel>
+                      {showPipelineNames ? `Etapa · ${group.name}` : 'Etapa del pipeline'}
+                    </SelectLabel>
+                    {group.stages.map((stage) => (
+                      <SelectItem key={stage.id} value={`${OPP_STAGE_PREFIX}${stage.id}`}>
+                        {stage.name}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                ))}
+              </SelectContent>
+            </Select>
             <Select
               value={searchFromUrl.consent ?? '__all__'}
               onValueChange={(v) =>

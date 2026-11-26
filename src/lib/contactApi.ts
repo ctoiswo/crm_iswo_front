@@ -19,6 +19,16 @@ export const WHATSAPP_CONSENT_LABELS: Record<ContactWhatsappConsent, string> = {
   none: 'Sin opt-in',
 }
 
+/** Filtro por estado de oportunidades en /contacts (ver Contacts::OpportunityFilter). */
+export type ContactOpportunityStatus = 'open' | 'won' | 'lost' | 'none'
+
+export const OPPORTUNITY_STATUS_FILTER_LABELS: Record<ContactOpportunityStatus, string> = {
+  open: 'Abiertas',
+  won: 'Ganadas',
+  lost: 'Perdidas',
+  none: 'Sin oportunidad',
+}
+
 export interface ContactQuickStats {
   clients: number
   prospects: number
@@ -124,6 +134,8 @@ export interface ContactListFilters {
   owner_id?: string
   segment?: ContactSegment
   whatsapp_consent?: ContactWhatsappConsent
+  opportunity_status?: ContactOpportunityStatus
+  pipeline_stage_id?: string
   page?: number
   items?: number
 }
@@ -200,6 +212,8 @@ export function buildContactListParams(filters: ContactListFilters): Record<stri
   if (filters.owner_id) params.owner_id = filters.owner_id
   if (filters.segment) params.segment = filters.segment
   if (filters.whatsapp_consent) params.whatsapp_consent = filters.whatsapp_consent
+  if (filters.opportunity_status) params.opportunity_status = filters.opportunity_status
+  if (filters.pipeline_stage_id) params.pipeline_stage_id = filters.pipeline_stage_id
   if (filters.q && filters.q.length >= 2) params.q = filters.q
   if (filters.page) params.page = filters.page
   if (filters.items) params.items = filters.items
